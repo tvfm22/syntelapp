@@ -1,0 +1,290 @@
+{% extends 'base.html' %}
+{% load static custom_filters %}
+
+{% block title %}کالاهای موجود در انبار - Kuker{% endblock %}
+
+{% block extra_css %}
+<style>
+    .wap-wrap { max-width: 1000px; margin: 0 auto; padding-bottom: 80px; }
+    .wap-wrap .page-header {
+        height: auto; min-height: 64px; padding: var(--space-3) var(--space-5);
+        margin-bottom: var(--space-4); flex-wrap: wrap; gap: var(--space-3);
+        border-radius: var(--radius-xl);
+    }
+
+    .step-card {
+        background: var(--bg-card); border-radius: var(--radius-xl); padding: 1.25rem 1.5rem;
+        margin-bottom: 1rem; box-shadow: var(--shadow-xs); border: 1px solid var(--border-light);
+    }
+    .step-title {
+        font-size: 0.95rem; font-weight: 800; color: var(--text-primary);
+        margin-bottom: 0.65rem; display: flex; align-items: center; gap: 0.6rem;
+    }
+    .step-badge {
+        min-width: 26px; height: 26px; border-radius: 50%; background: var(--accent-indigo); color: white;
+        display: inline-flex; align-items: center; justify-content: center; font-size: 0.76rem; font-weight: 800;
+    }
+    .hint { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.85rem; line-height: 1.7; }
+
+    /* product & warehouse items */
+    .product-item, .warehouse-item {
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        padding: 0.85rem 1rem; border: 1px solid var(--border-default); border-radius: 12px; margin-bottom: 0.6rem;
+        background: var(--bg-card); cursor: pointer; transition: all 0.15s; font-family: 'Vazir', sans-serif; width: 100%; text-align: right;
+    }
+    .product-item:hover, .warehouse-item:hover { border-color: var(--accent-indigo); background: #EEF2FF; }
+    .product-item.active, .warehouse-item.active { border-color: var(--accent-indigo); background: #EEF2FF; box-shadow: 0 0 0 2px rgba(139,92,246,0.12); }
+    .product-name, .warehouse-name { font-size: 0.9rem; font-weight: 700; color: var(--text-primary); }
+    .product-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+    .product-arrow { color: var(--text-muted); font-size: 0.85rem; }
+
+    /* warehouse supply rows */
+    .wh-row {
+        padding: 1rem; border: 1px solid var(--border-default); border-radius: 12px; margin-bottom: 0.65rem; background: var(--bg-card);
+    }
+    .wh-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .wh-badge {
+        background: rgba(139,92,246,0.12); color: #6D28D9; font-size: 0.78rem; font-weight: 700;
+        padding: 3px 10px; border-radius: 999px;
+    }
+    .wh-avail { font-size: 0.82rem; color: var(--text-primary); font-weight: 700; margin-right: auto; }
+    .wh-controls { display: flex; gap: 8px; align-items: center; }
+    .qty-input {
+        flex: 1; height: 38px; padding: 0 12px; border: 1px solid var(--border-default); border-radius: 10px;
+        font-size: 0.88rem; font-family: 'Vazir', sans-serif; min-width: 0; background: var(--bg-input);
+    }
+    .qty-input:focus { outline: none; border-color: var(--accent-indigo); background: #fff; box-shadow: 0 0 0 3px rgba(139,92,246,0.12); }
+    .add-btn {
+        height: 38px; padding: 0 18px; border: none; border-radius: 10px; background: var(--accent-indigo); color: white;
+        font-size: 0.82rem; font-weight: 700; cursor: pointer; font-family: 'Vazir', sans-serif; white-space: nowrap;
+    }
+    .add-btn:disabled { background: #CBD5E1; cursor: not-allowed; }
+    .qty-warning { font-size: 0.75rem; color: #DC2626; margin-top: 6px; display: none; font-weight: 600; }
+
+    /* review table */
+    .review-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+    .review-table th {
+        background: var(--bg-subtle); color: var(--text-secondary); padding: 0.65rem 0.75rem; font-weight: 700;
+        text-align: right; white-space: nowrap; font-size: 0.76rem; border-bottom: 1px solid var(--border-default);
+    }
+    .review-table td { padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--border-light); vertical-align: middle; }
+    .review-table tr:last-child td { border-bottom: none; }
+    .status-select {
+        height: 34px; padding: 0 8px; border: 1px solid var(--border-default); border-radius: 8px;
+        font-size: 0.8rem; font-family: 'Vazir', sans-serif; background: white;
+    }
+    .remove-btn {
+        border: none; background: #FEF2F2; color: #DC2626; width: 30px; height: 30px;
+        border-radius: 8px; cursor: pointer; font-size: 0.8rem;
+    }
+    .empty-review { text-align: center; color: var(--text-muted); font-size: 0.84rem; padding: 1.5rem 0; }
+
+    .submit-bar-bottom {
+        display: flex; justify-content: flex-end; background: var(--bg-card);
+        border: 1px solid var(--border-light); border-radius: var(--radius-xl);
+        padding: 1rem 1.25rem; box-shadow: var(--shadow-sm);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wap-wrap">
+    <div class="page-header">
+        <div class="ph-main">
+            <div class="ph-icon"><i class="fas fa-box-open"></i></div>
+            <div class="ph-title">
+                <h1>کالاهای موجود در انبار</h1>
+                <div class="page-sub">انتخاب محصول و انبار و ثبت درخواست تامین از موجودی</div>
+            </div>
+        </div>
+        <div class="header-actions">
+            <a href="{% url 'purchasing_dashboard' cafe_code=cafe_code %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-right"></i> بازگشت
+            </a>
+        </div>
+    </div>
+
+    <form method="post" id="mainForm">
+        {% csrf_token %}
+
+        <div class="step-card">
+            <div class="step-title"><span class="step-badge">۱</span> محصول را انتخاب کنید</div>
+            <div class="hint">فقط کالاهایی نمایش داده می‌شوند که هم‌اکنون در انبار موجودی دارند.</div>
+            <div id="productList"></div>
+        </div>
+
+        <div class="step-card" id="warehouseCard" style="display:none;">
+            <div class="step-title"><span class="step-badge">۲</span> انبار و مقدار را مشخص کنید</div>
+            <div class="hint">انبار دارای موجودی را انتخاب کرده، مقدار مورد نیاز را وارد کنید و دکمه «افزودن» را بزنید.</div>
+            <div id="warehouseList"></div>
+        </div>
+
+        <div class="step-card">
+            <div class="step-title"><span class="step-badge"><i class="fas fa-check"></i></span> جدول بررسی اقلام</div>
+            <div class="hint">برای هر قلم وضعیت نهایی را تعیین کنید: تامین از انبار (کسر موجودی)، ارسال به لیست خرید، یا تامین نشده.</div>
+            <div style="overflow-x:auto;">
+                <table class="review-table" id="reviewTable">
+                    <thead>
+                        <tr>
+                            <th>کالا</th>
+                            <th>انبار</th>
+                            <th>مقدار</th>
+                            <th>وضعیت</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="reviewBody">
+                        {% for row in submitted_rows %}
+                        <tr data-row-idx="{{ forloop.counter0 }}">
+                            <td>{{ row.product.name }}</td>
+                            <td>{{ row.warehouse.name }}</td>
+                            <td>{{ row.qty|trim_decimal }}{% if row.product.unit %} {{ row.product.unit.name }}{% endif %}</td>
+                            <td>
+                                <select name="status" class="status-select">
+                                    <option value="from_stock" {% if row.status == 'from_stock' %}selected{% endif %}>تامین از انبار</option>
+                                    <option value="to_purchase" {% if row.status == 'to_purchase' %}selected{% endif %}>ارسال به لیست خرید</option>
+                                    <option value="not_supplied" {% if row.status == 'not_supplied' %}selected{% endif %}>تامین نشده</option>
+                                </select>
+                            </td>
+                            <td><button type="button" class="remove-btn" onclick="removeRow(this)"><i class="fas fa-xmark"></i></button></td>
+                            <input type="hidden" name="product_id" value="{{ row.product.id }}">
+                            <input type="hidden" name="warehouse_id" value="{{ row.warehouse.id }}">
+                            <input type="hidden" name="qty" value="{{ row.qty }}">
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5"><div class="empty-review" id="emptyReview">هنوز قلمی افزوده نشده است</div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="submit-bar-bottom">
+            <button type="submit" class="btn btn-primary" onclick="return confirmSubmit()">
+                <i class="fas fa-check"></i> تایید نهایی و ثبت
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+const PRODUCTS = {{ products_json|safe }};
+let currentProduct = null;
+let currentWarehouse = null;
+let nextIdx = {{ submitted_rows|length }};
+
+function renderProducts() {
+    const container = document.getElementById('productList');
+    container.innerHTML = '';
+    if (!PRODUCTS.length) {
+        container.innerHTML = '<div class="empty-review">هیچ کالایی با موجودی در انبار یافت نشد</div>';
+        return;
+    }
+    PRODUCTS.forEach(p => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'product-item';
+        btn.innerHTML = `<div>
+            <div class="product-name">${p.name}</div>
+            <div class="product-meta">${p.warehouses.length} انبار دارای موجودی</div>
+        </div><span class="product-arrow"><i class="fas fa-chevron-left"></i></span>`;
+        btn.onclick = (e) => selectProduct(p.id, e.currentTarget);
+        container.appendChild(btn);
+    });
+}
+
+function selectProduct(productId, btnEl) {
+    currentProduct = PRODUCTS.find(p => p.id === productId);
+    currentWarehouse = null;
+
+    document.querySelectorAll('.product-item').forEach(el => el.classList.remove('active'));
+    btnEl.classList.add('active');
+
+    const card = document.getElementById('warehouseCard');
+    const list = document.getElementById('warehouseList');
+    list.innerHTML = '';
+    currentProduct.warehouses.forEach(w => {
+        const row = document.createElement('div');
+        row.className = 'wh-row';
+        const unitPart = w.unit ? ` ${w.unit}` : '';
+        row.innerHTML = `
+            <div class="wh-head">
+                <span class="wh-badge"><i class="fas fa-warehouse"></i> ${w.name}</span>
+                <span class="wh-avail">موجودی: ${w.available}${unitPart}</span>
+            </div>
+            <div class="wh-controls">
+                <input type="number" class="qty-input" min="0.01" step="any" placeholder="مقدار (${w.unit || 'واحد'})">
+                <button type="button" class="add-btn">افزودن</button>
+            </div>
+            <div class="qty-warning"><i class="fas fa-triangle-exclamation"></i> مقدار وارد شده بیشتر از موجودی انبار است</div>`;
+
+        const qtyInput = row.querySelector('.qty-input');
+        const warn = row.querySelector('.qty-warning');
+        row.querySelector('.add-btn').onclick = () => {
+            const val = parseFloat(qtyInput.value);
+            const maxVal = parseFloat(w.available);
+            if (!val || val <= 0 || isNaN(val)) { qtyInput.focus(); return; }
+            if (val > maxVal) { warn.style.display = ''; return; }
+            warn.style.display = 'none';
+            addRow(w, val);
+            qtyInput.value = '';
+        };
+        qtyInput.addEventListener('input', () => {
+            const val = parseFloat(qtyInput.value);
+            if (val && val > parseFloat(w.available)) warn.style.display = '';
+            else warn.style.display = 'none';
+        });
+        list.appendChild(row);
+    });
+    card.style.display = '';
+}
+
+function addRow(wh, qty) {
+    const tbody = document.getElementById('reviewBody');
+    const empty = document.getElementById('emptyReview');
+    if (empty) { empty.closest('tr').remove(); }
+
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-row-idx', nextIdx);
+    const unitPart = wh.unit ? ` ${wh.unit}` : '';
+    tr.innerHTML = `
+        <td>${currentProduct.name}</td>
+        <td>${wh.name}</td>
+        <td>${qty}${unitPart}</td>
+        <td>
+            <select name="status" class="status-select">
+                <option value="from_stock" selected>تامین از انبار</option>
+                <option value="to_purchase">ارسال به لیست خرید</option>
+                <option value="not_supplied">تامین نشده</option>
+            </select>
+        </td>
+        <td><button type="button" class="remove-btn" onclick="removeRow(this)"><i class="fas fa-xmark"></i></button></td>
+        <input type="hidden" name="product_id" value="${currentProduct.id}">
+        <input type="hidden" name="warehouse_id" value="${wh.id}">
+        <input type="hidden" name="qty" value="${qty}">`;
+    tbody.appendChild(tr);
+    nextIdx++;
+}
+
+function removeRow(btn) {
+    const tr = btn.closest('tr');
+    tr.remove();
+    const tbody = document.getElementById('reviewBody');
+    if (!tbody.children.length) {
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-review">هنوز قلمی افزوده نشده است</div></td></tr>';
+    }
+}
+
+function confirmSubmit() {
+    const rows = document.querySelectorAll('#reviewBody tr');
+    const hasReal = [...rows].some(tr => tr.querySelector('input[name="qty"]'));
+    if (!hasReal) {
+        alert('لطفاً حداقل یک قلم کالا اضافه کنید.');
+        return false;
+    }
+    return confirm('تایید نهایی؟ اقلام با وضعیت «تامین از انبار» از موجودی کسر می‌شوند.');
+}
+
+renderProducts();
+</script>
+{% endblock %}

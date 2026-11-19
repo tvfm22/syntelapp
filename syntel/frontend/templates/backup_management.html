@@ -1,0 +1,241 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title mb-0">
+                        <i class="fas fa-database me-2"></i>
+                        {{ title }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- System Statistics -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">{{ total_users }}</h5>
+                                    <p class="card-text">کاربر</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">{{ total_requests }}</h5>
+                                    <p class="card-text">درخواست کالا</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">{{ total_invoices }}</h5>
+                                    <p class="card-text">فاکتور</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">{{ total_payments }}</h5>
+                                    <p class="card-text">پرداخت</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Database Information -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">اطلاعات پایگاه داده</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p><strong>نام پایگاه داده:</strong> {{ database_name }}</p>
+                                            <p><strong>نوع:</strong> {{ database_type }}</p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p><strong>مسیر:</strong> <code dir="ltr">{{ database_path }}</code></p>
+                                            <p><strong>حجم:</strong> {{ database_size }}</p>
+                                        </div>
+                                    </div>
+                                    <p class="mb-0 text-muted">
+                                        <strong>تعداد تأمین‌کنندگان:</strong> {{ total_suppliers }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Backup (Download) Operations -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">
+                                        <i class="fas fa-download me-2"></i>
+                                        پشتیبان‌گیری و دانلود
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-grid gap-2">
+                                        <a href="{% url 'download_database_file' cafe_code=cafe_code %}" class="btn btn-primary">
+                                            <i class="fas fa-database me-2"></i>
+                                            دانلود فایل کامل دیتابیس
+                                        </a>
+                                        <a href="{% url 'export_data_folder' cafe_code=cafe_code %}" class="btn btn-dark">
+                                            <i class="fas fa-folder-open me-2"></i>
+                                            دانلود پشتیبان کامل پوشه داده‌ها (ZIP)
+                                        </a>
+                                        <form action="{% url 'backup_database' cafe_code=cafe_code %}" method="post" class="m-0">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-success w-100">
+                                                <i class="fas fa-server me-2"></i>
+                                                ایجاد نسخه پشتیبان روی سرور
+                                            </button>
+                                        </form>
+                                        <a href="{% url 'export_data_json' cafe_code=cafe_code %}" class="btn btn-info">
+                                            <i class="fas fa-file-code me-2"></i>
+                                            دانلود داده‌ها به JSON
+                                        </a>
+                                        <a href="{% url 'export_data_csv' cafe_code=cafe_code %}" class="btn btn-secondary">
+                                            <i class="fas fa-file-csv me-2"></i>
+                                            دانلود داده‌ها به CSV
+                                        </a>
+                                    </div>
+                                    <div class="form-text mt-3">
+                                        دانلود فایل کامل دیتابیس، دقیق‌ترین نسخه برای بازگردانی کامل است.
+                                        پشتیبان کامل پوشه داده‌ها شامل دیتابیس، فایل‌های آپلودی و نشست‌ها می‌شود
+                                        (بدون کش، لاگ و پوشه پشتیبان‌ها).
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Restore Operations -->
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">
+                                        <i class="fas fa-upload me-2"></i>
+                                        بازیابی و بازگردانی
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    {% if is_sqlite %}
+                                    <form action="{% url 'restore_database_file' cafe_code=cafe_code %}" method="post" enctype="multipart/form-data" class="mb-4"
+                                          onsubmit="return confirm('هشدار: این عملیات دیتابیس فعلی را کاملاً با فایل انتخابی جایگزین می‌کند. نسخه قبلی به‌صورت خودکار در پوشه پشتیبان‌ها ذخیره می‌شود. ادامه می‌دهید؟');">
+                                        {% csrf_token %}
+                                        <div class="mb-2">
+                                            <label for="db_file" class="form-label">بازیابی کامل با فایل دیتابیس (.sqlite3 یا .db):</label>
+                                            <input type="file" class="form-control" id="db_file" name="db_file" accept=".db,.sqlite,.sqlite3" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-danger w-100">
+                                            <i class="fas fa-rotate-left me-2"></i>
+                                            بازگردانی دیتابیس از فایل
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <div class="alert alert-info py-2">
+                                        بازیابی فایل دیتابیس فقط برای SQLite پشتیبانی می‌شود — از بازیابی JSON زیر استفاده کنید.
+                                    </div>
+                                    {% endif %}
+
+                                    <form action="{% url 'import_data_json' cafe_code=cafe_code %}" method="post" enctype="multipart/form-data"
+                                          onsubmit="return confirm('هشدار: این عملیات تمام داده‌های فعلی را پاک و با داده‌های فایل JSON جایگزین می‌کند. نسخه قبلی به‌صورت خودکار در پوشه پشتیبان‌ها ذخیره می‌شود. ادامه می‌دهید؟');">
+                                        {% csrf_token %}
+                                        <div class="mb-2">
+                                            <label for="backup_file" class="form-label">بازیابی از فایل JSON:</label>
+                                            <input type="file" class="form-control" id="backup_file" name="backup_file" accept=".json" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-warning w-100">
+                                            <i class="fas fa-file-import me-2"></i>
+                                            بازگردانی داده‌ها از JSON
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Server-side Backups List -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">
+                                        <i class="fas fa-archive me-2"></i>
+                                        پشتیبان‌های ذخیره‌شده روی سرور
+                                        <span class="badge bg-secondary ms-2">{{ backups|length }}</span>
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    {% if backups %}
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover align-middle mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>نام فایل</th>
+                                                    <th>حجم</th>
+                                                    <th>تاریخ</th>
+                                                    <th class="text-end">عملیات</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for backup in backups %}
+                                                <tr>
+                                                    <td dir="ltr" class="text-start">{{ backup.name }}</td>
+                                                    <td>{{ backup.size_display }}</td>
+                                                    <td>{{ backup.modified }}</td>
+                                                    <td class="text-end">
+                                                        <a href="{% url 'download_backup_file' cafe_code=cafe_code filename=backup.name %}" class="btn btn-sm btn-outline-primary">
+                                                            <i class="fas fa-download me-1"></i> دانلود
+                                                        </a>
+                                                        <form action="{% url 'delete_backup_file' cafe_code=cafe_code filename=backup.name %}" method="post" class="d-inline"
+                                                              onsubmit="return confirm('حذف فایل پشتیبان «{{ backup.name }}»؟');">
+                                                            {% csrf_token %}
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                                <i class="fas fa-trash me-1"></i> حذف
+                                                            </button>
+                                                        </form>
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {% else %}
+                                    <p class="text-muted mb-0">
+                                        هنوز پشتیبانی روی سرور ذخیره نشده است. از دکمه «ایجاد نسخه پشتیبان روی سرور» استفاده کنید.
+                                    </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Health -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <a href="{% url 'system_health_check' %}" class="btn btn-outline-primary">
+                                <i class="fas fa-heartbeat me-2"></i>
+                                بررسی سلامت سیستم
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,148 @@
+{% extends 'dashboard_layout.html' %}
+{% load static %}
+
+{% block title %}پنل کاربری - {{ user.department_display }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-card-grid {
+        max-width: 700px;
+        margin: 0 auto;
+    }
+    .header-info {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .header-info h1 {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--dark);
+        margin-bottom: 0.5rem;
+    }
+    .user-badge {
+        display: inline-block;
+        background: white;
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius-md);
+        color: var(--gray-500);
+        font-size: 0.875rem;
+        border: 1px solid var(--gray-200);
+    }
+
+    .menu-grid {
+        display: grid;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .menu-item {
+        background: white;
+        border: 1px solid var(--gray-200);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        transition: all 0.2s;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .menu-item:active {
+        transform: scale(0.98);
+        border-color: var(--primary);
+    }
+    .menu-item:hover {
+        box-shadow: var(--shadow-md);
+        border-color: var(--primary-light);
+    }
+
+    .menu-icon { font-size: 2rem; flex-shrink: 0; }
+    .menu-content { flex: 1; }
+    .menu-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--dark);
+        margin-bottom: 0.25rem;
+    }
+    .menu-subtitle {
+        font-size: 0.875rem;
+        color: var(--gray-500);
+    }
+    .menu-hint {
+        display: block;
+        margin-top: 0.2rem;
+        font-size: 0.76rem;
+        line-height: 1.6;
+        color: #B45309;
+    }
+
+    .menu-icon { position: relative; }
+    .menu-badge {
+        position: absolute;
+        top: -8px;
+        left: -10px;
+        min-width: 20px;
+        height: 20px;
+        padding: 0 6px;
+        border-radius: 999px;
+        background: var(--danger, #dc2626);
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        direction: ltr;
+    }
+
+    @media (max-width: 480px) {
+        .header-info h1 { font-size: 1.2rem; }
+        .menu-item { padding: 1.25rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-card-grid">
+    <div class="header-info">
+        <h1>سیستم سفارش‌گذاری کوکر</h1>
+        <span class="user-badge">{{ user.department_display }}</span>
+    </div>
+
+    <div class="menu-grid">
+        <a href="{% url 'purchase_request' cafe_code=cafe_code %}" class="menu-item">
+            <div class="menu-icon">📝</div>
+            <div class="menu-content">
+                <div class="menu-title">ثبت درخواست کالا</div>
+                <div class="menu-subtitle">ثبت درخواست کالا جدید</div>
+            </div>
+        </a>
+
+        <a href="{% url 'purchase_requests_list' cafe_code=cafe_code %}" class="menu-item">
+            <div class="menu-icon">📋</div>
+            <div class="menu-content">
+                <div class="menu-title">درخواست‌های کالا من</div>
+                <div class="menu-subtitle">مشاهده درخواست‌های کالا</div>
+            </div>
+        </a>
+
+        <a href="{% url 'my_received_items' cafe_code=cafe_code %}" class="menu-item">
+            <div class="menu-icon">
+                📦
+                {% if received_pending_count %}<span class="menu-badge">{{ received_pending_count }}</span>{% endif %}
+            </div>
+            <div class="menu-content">
+                <div class="menu-title">کالاهای دریافتی من</div>
+                <div class="menu-subtitle">
+                    {% if received_pending_count %}
+                        {{ received_pending_count }} قلم در انتظار تایید دریافت
+                        <span class="menu-hint">ابتدا تایید کنید؛ تا آن زمان درخواست جدید ثبت نمیشود</span>
+                    {% else %}
+                        مشاهده و تایید کالاهای تحویل‌شده
+                    {% endif %}
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">Syntel</string>
+    <string name="brand_subtitle">سیستم مدیریت درخواست، انبار و خرید</string>
+    <string name="cd_app_logo">لوگوی سینتل</string>
+    <string name="cd_refresh">به‌روزرسانی اطلاعات</string>
+    <string name="cd_logout">خروج از حساب کاربری</string>
+    <string name="cd_offline_banner">وضعیت آفلاین</string>
+    <string name="cd_back">بازگشت</string>
+    <string name="cd_add_request">ثبت درخواست جدید</string>
+    <string name="cd_search">جستجو</string>
+    <string name="cd_clear_search">پاک کردن جستجو</string>
+    <string name="cd_filter">فیلتر</string>
+    <string name="cd_toggle_password">نمایش یا مخفی کردن رمز عبور</string>
+</resources>

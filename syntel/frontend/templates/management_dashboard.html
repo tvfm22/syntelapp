@@ -1,0 +1,298 @@
+{% extends 'dashboard_base.html' %}
+{% load static %}
+
+{% block title %}داشبورد مدیریت - Kuker{% endblock %}
+
+{% block extra_css %}
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
+<style>
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .chart-container { position: relative; height: 350px; }
+
+    .period-filter {
+        display: flex; gap: 0.5rem; margin-bottom: 1rem;
+    }
+    .period-btn {
+        padding: 0.5rem 1rem; border: 1px solid var(--border-color);
+        border-radius: var(--radius-md); background: white; cursor: pointer;
+        font-family: 'Vazir', sans-serif; font-size: 0.8rem; font-weight: 500;
+        transition: all 0.2s;
+    }
+    .period-btn:hover { border-color: var(--primary-color); color: var(--primary-color); }
+    .period-btn.active {
+        background: var(--primary-color); color: white; border-color: var(--primary-color);
+    }
+
+    .list-container { }
+    .list-item {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 1rem 0; border-bottom: 1px solid var(--border-color);
+    }
+    .list-item:last-child { border-bottom: none; }
+    .list-item-title { font-weight: 600; color: var(--dark-color); }
+    .list-item-subtitle { font-size: 0.8rem; color: #6b7280; margin-top: 0.25rem; }
+    .loading { text-align: center; padding: 2rem; color: #6b7280; }
+
+    @media (max-width: 768px) {
+        .dashboard-grid { grid-template-columns: 1fr; gap: 1rem; }
+        .chart-container { height: 250px; }
+    }
+
+    /* Hide date and logout in header on mobile for CEO users only */
+    @media (max-width: 1023px) {
+        .ceo-header .header-actions {
+            display: none !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="page-header{% if user.role == 'ceo' %} ceo-header{% endif %}">
+    <h1 class="page-title">
+        <i class="fas fa-chart-bar"></i>
+        داشبورد مدیریت
+    </h1>
+    <div class="header-actions">
+        <div class="current-date">
+            <i class="fas fa-calendar-alt"></i>
+            <span id="persianDate"></span>
+        </div>
+        <a href="{% url 'logout' %}" class="logout-btn">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>خروج</span>
+        </a>
+    </div>
+</div>
+
+<!-- Dashboard Grid -->
+<div class="dashboard-grid">
+    <!-- Category Expenses Chart -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <i class="fas fa-chart-pie"></i>
+                هزینه‌ها به تفکیک دسته‌بندی
+            </div>
+            <div class="period-filter" style="margin-top:0.75rem;">
+                <button class="period-btn active" data-period="monthly" onclick="changePeriod('monthly')">ماهیانه</button>
+                <button class="period-btn" data-period="seasonal" onclick="changePeriod('seasonal')">فصلی</button>
+                <button class="period-btn" data-period="yearly" onclick="changePeriod('yearly')">سالانه</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Price Increases -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <i class="fas fa-arrow-trend-up"></i>
+                بالاترین رشد قیمت محصولات
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="list-container" id="priceIncreasesList">
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Supplier Debts -->
+<div class="card">
+    <div class="card-header">
+        <div class="card-title">
+            <i class="fas fa-money-bill-wave"></i>
+            بدهی به تامین‌کنندگان
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="empty-state">
+            <i class="fas fa-inbox"></i>
+            <p>این بخش در حال توسعه است</p>
+            <small>به زودی اطلاعات بدهی تامین‌کنندگان در اینجا نمایش داده خواهد شد</small>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // CSRF Token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    const csrftoken = getCookie('csrftoken');
+    let currentPeriod = 'monthly';
+    let categoryChartInstance = null;
+
+    function toFarsiNumber(num) {
+        const farsiDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+        return num.toString().replace(/\d/g, x => farsiDigits[x]);
+    }
+
+    function formatNumber(num) {
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    function getPersianDate() {
+        const date = new Date();
+        return new Intl.DateTimeFormat('fa-IR', {
+            year: 'numeric', month: 'long', day: 'numeric'
+        }).format(date);
+    }
+
+    function changePeriod(period) {
+        currentPeriod = period;
+        document.querySelectorAll('.period-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`[data-period="${period}"]`).classList.add('active');
+        loadCategoryExpenses();
+        loadPriceIncreases();
+    }
+
+    function loadCategoryExpenses() {
+        fetch(`/{{ cafe_code }}/api/management/category-expenses/?period=${currentPeriod}`, {
+            headers: { 'X-CSRFToken': csrftoken }
+        })
+        .then(response => response.json())
+        .then(data => { renderCategoryChart(data); })
+        .catch(error => { console.error('Error loading category expenses:', error); });
+    }
+
+    function renderCategoryChart(data) {
+        const ctx = document.getElementById('categoryChart');
+        if (categoryChartInstance) { categoryChartInstance.destroy(); }
+        if (!data.categories || data.categories.length === 0) {
+            ctx.parentElement.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-chart-pie"></i>
+                    <p>داده‌ای برای نمایش وجود ندارد</p>
+                </div>`;
+            return;
+        }
+        const labels = data.categories.map(cat => cat.name);
+        const values = data.categories.map(cat => cat.total);
+        const colors = ['#6366f1','#ec4899','#10b981','#f59e0b','#3b82f6','#8b5cf6','#06b6d4','#f43f5e','#14b8a6','#a855f7'];
+
+        categoryChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: colors.slice(0, labels.length),
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right', rtl: true,
+                        labels: {
+                            font: { family: 'Vazir', size: 12 },
+                            padding: 15, usePointStyle: true,
+                            generateLabels: function(chart) {
+                                const data = chart.data;
+                                if (data.labels.length && data.datasets.length) {
+                                    return data.labels.map((label, i) => {
+                                        const value = data.datasets[0].data[i];
+                                        const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((value / total) * 100).toFixed(1);
+                                        return {
+                                            text: `${label}: ${toFarsiNumber(formatNumber(Math.round(value)))} (${toFarsiNumber(percentage)}%)`,
+                                            fillStyle: data.datasets[0].backgroundColor[i],
+                                            hidden: false, index: i
+                                        };
+                                    });
+                                }
+                                return [];
+                            }
+                        }
+                    },
+                    tooltip: {
+                        rtl: true, textDirection: 'rtl',
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: ${toFarsiNumber(formatNumber(Math.round(value)))} ریال (${toFarsiNumber(percentage)}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function loadPriceIncreases() {
+        const container = document.getElementById('priceIncreasesList');
+        container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
+
+        fetch(`/{{ cafe_code }}/api/management/price-increases/?period=${currentPeriod}`, {
+            headers: { 'X-CSRFToken': csrftoken }
+        })
+        .then(response => response.json())
+        .then(data => { renderPriceIncreases(data); })
+        .catch(error => {
+            console.error('Error loading price increases:', error);
+            container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>خطا در بارگذاری داده‌ها</p></div>`;
+        });
+    }
+
+    function renderPriceIncreases(data) {
+        const container = document.getElementById('priceIncreasesList');
+        if (!data.products || data.products.length === 0) {
+            container.innerHTML = `<div class="empty-state"><i class="fas fa-chart-line"></i><p>تغییر قیمتی یافت نشد</p><small>در این بازه زمانی تغییر قیمت قابل توجهی ثبت نشده است</small></div>`;
+            return;
+        }
+        container.innerHTML = data.products.map((product, index) => `
+            <div class="list-item">
+                <div class="list-item-content">
+                    <div class="list-item-title">${index + 1}. ${product.name}</div>
+                    <div class="list-item-subtitle">قیمت قبلی: ${toFarsiNumber(formatNumber(Math.round(product.old_price)))} ریال → قیمت جدید: ${toFarsiNumber(formatNumber(Math.round(product.new_price)))} ریال</div>
+                </div>
+                <div><div class="badge badge-danger"><i class="fas fa-arrow-up"></i> ${toFarsiNumber(product.increase_percentage.toFixed(1))}%</div></div>
+            </div>
+        `).join('');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('persianDate').textContent = getPersianDate();
+        loadCategoryExpenses();
+        loadPriceIncreases();
+    });
+</script>
+{% endblock %}

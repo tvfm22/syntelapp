@@ -1,0 +1,900 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ثبت درخواست از انبار - Kuker{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-container { max-width: 900px; margin: 0 auto; }
+
+    .page-header {
+        background: var(--bg-card); border: 1px solid var(--border-light);
+        border-radius: var(--radius-3xl); box-shadow: var(--shadow-sm);
+        min-height: 58px; padding: var(--space-3) var(--space-6);
+        margin-bottom: var(--space-4); flex-wrap: wrap; gap: var(--space-2);
+        display: flex; align-items: center; justify-content: space-between;
+    }
+    .page-header h1 {
+        font-size: 1.15rem; font-weight: 800; color: var(--text-primary);
+        margin: 0; display: flex; align-items: center; gap: 0.5rem;
+    }
+    .page-header h1 i { color: var(--accent-indigo); }
+    .ph-icon {
+        width: 44px; height: 44px; border-radius: var(--radius-md); flex-shrink: 0;
+        background: rgba(139,92,246,0.1); color: var(--accent-indigo);
+        display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+    }
+    .ph-main { display: flex; align-items: center; gap: 0.8rem; min-width: 0; }
+
+    .user-badge {
+        display: inline-flex; align-items: center; gap: 0.35rem;
+        background: rgba(139,92,246,0.08); color: #6d28d9;
+        padding: 0.3rem 0.85rem; border-radius: 999px;
+        font-size: 0.74rem; font-weight: 700; white-space: nowrap;
+    }
+
+    .info-box {
+        background: rgba(139,92,246,0.05); border: 1px solid rgba(139,92,246,0.18);
+        border-radius: var(--radius-lg); padding: 0.85rem 1.1rem;
+        margin-bottom: var(--space-4); font-size: 0.8rem; color: #5b21b6;
+        display: flex; align-items: flex-start; gap: 0.5rem; line-height: 1.8;
+    }
+    .info-box i { margin-top: 0.25rem; color: var(--accent-indigo); }
+
+    /* ── Entry Form ── */
+    .entry-form-section {
+        background: var(--bg-card);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-sm);
+        padding: var(--space-5);
+        margin-bottom: var(--space-4);
+    }
+
+    .entry-form-section h3 {
+        font-size: 0.92rem;
+        color: var(--text-primary);
+        margin-bottom: var(--space-4);
+        font-weight: 800;
+        display: flex; align-items: center; gap: 0.45rem;
+    }
+    .entry-form-section h3 i { color: var(--accent-indigo); }
+
+    .entry-fields {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr;
+        gap: 0.75rem;
+    }
+    @media (max-width: 640px) {
+        .entry-fields { grid-template-columns: 1fr; }
+    }
+
+    .entry-description {
+        margin-top: 0.75rem;
+    }
+
+    .entry-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+    }
+
+    .btn-add {
+        background: var(--accent-green, #22C55E);
+        color: white;
+        padding: 0.45rem 1.3rem;
+        border: none;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: 'Vazir', sans-serif;
+        transition: background .15s, transform .15s;
+        display: inline-flex; align-items: center; gap: 0.35rem;
+    }
+    .btn-add:hover { background: #16A34A; }
+    .btn-add:active { transform: scale(.98); }
+    .btn-add:disabled { background: #86efac; cursor: not-allowed; }
+
+    .btn-cancel-edit {
+        background: var(--bg-subtle);
+        color: var(--text-secondary);
+        padding: 0.45rem 1rem;
+        border: 1.5px solid var(--border-default);
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: 'Vazir', sans-serif;
+        transition: all .15s;
+    }
+    .btn-cancel-edit:hover { border-color: #EF4444; color: #EF4444; background: #fff; }
+
+    /* ── Items Table ── */
+    .items-table-section {
+        margin-bottom: var(--space-4);
+    }
+
+    .items-table-section h3 {
+        font-size: 0.92rem;
+        color: var(--text-primary);
+        margin-bottom: 0.75rem;
+        font-weight: 800;
+        display: flex; align-items: center; gap: 0.45rem;
+    }
+    .items-table-section h3 i { color: var(--accent-indigo); }
+
+    .table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .items-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.84rem;
+    }
+
+    .items-table th {
+        background: var(--bg-subtle);
+        color: var(--text-muted);
+        font-weight: 700;
+        padding: 0.625rem 0.75rem;
+        text-align: right;
+        border-bottom: 2px solid var(--border-light);
+        white-space: nowrap;
+        font-size: 0.74rem;
+    }
+
+    .items-table td {
+        padding: 0.625rem 0.75rem;
+        color: var(--text-secondary);
+        border-bottom: 1px solid var(--border-light);
+        vertical-align: middle;
+    }
+
+    .items-table tr:last-child td { border-bottom: none; }
+    .items-table tr:hover td { background: var(--bg-subtle); }
+
+    .items-table .col-num {
+        text-align: center;
+        width: 40px;
+        color: var(--text-muted);
+        font-weight: 500;
+    }
+
+    .items-table .col-qty {
+        text-align: center;
+        width: 80px;
+        font-weight: 700;
+        direction: ltr;
+    }
+
+    .items-table .col-unit {
+        text-align: center;
+        width: 70px;
+    }
+
+    .items-table .col-actions {
+        text-align: center;
+        width: 80px;
+        white-space: nowrap;
+    }
+
+    .items-table .col-desc {
+        max-width: 180px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--text-muted);
+        font-size: 0.78rem;
+    }
+
+    .action-icon-btn {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        font-size: 0.95rem;
+        padding: 0.3rem 0.45rem;
+        border-radius: var(--radius-sm);
+        transition: background .15s;
+        font-family: 'Vazir', sans-serif;
+        vertical-align: middle;
+    }
+    .action-icon-btn:hover { background: var(--bg-subtle); }
+    .action-icon-btn.edit-btn { color: #059669; }
+    .action-icon-btn.delete-btn { color: #dc2626; }
+    .action-icon-btn.edit-btn:hover { background: #ecfdf5; }
+    .action-icon-btn.delete-btn:hover { background: #fef2f2; }
+
+    .empty-state {
+        text-align: center;
+        padding: 2rem 1rem;
+        color: var(--text-muted);
+        font-size: 0.84rem;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-lg);
+        margin-top: 0.5rem;
+    }
+
+    /* ── Reused existing styles ── */
+    .form-group { display: flex; flex-direction: column; }
+    .form-group label { font-size: 0.78rem; color: var(--text-muted); margin-bottom: .3rem; font-weight: 700; }
+
+    .form-control, select {
+        width: 100%; padding: .5rem .75rem; border: 1.5px solid var(--border-default); border-radius: var(--radius-md);
+        font-size: .84rem; font-family: 'Vazir', sans-serif; transition: border-color .2s, box-shadow .2s;
+        background: var(--bg-card); color: var(--text-primary);
+    }
+    .form-control:focus, select:focus { outline: none; border-color: var(--accent-indigo); box-shadow: 0 0 0 3px rgba(139,92,246,0.12); }
+    textarea.form-control { resize: vertical; min-height: 60px; }
+
+    /* ── autocomplete ── */
+    .autocomplete-wrap { position: relative; }
+    .autocomplete-dropdown {
+        position: absolute; top: 100%; right: 0; left: 0; z-index: 999;
+        background: var(--bg-card); border: 1px solid var(--border-default); border-top: none;
+        border-radius: 0 0 var(--radius-lg) var(--radius-lg); max-height: 200px; overflow-y: auto;
+        box-shadow: var(--shadow-lg); display: none;
+    }
+    .autocomplete-dropdown.open { display: block; }
+    .ac-item {
+        padding: 8px 12px; font-size: 13px; cursor: pointer;
+        border-bottom: 1px solid var(--border-light); transition: background .1s;
+    }
+    .ac-item:last-child { border-bottom: none; }
+    .ac-item:hover, .ac-item.highlighted { background: rgba(139,92,246,0.06); }
+    .ac-item .ac-name { font-weight: 600; color: var(--text-primary); }
+    .ac-item .ac-cat  { color: var(--text-muted); font-size: 11px; margin-top: 2px; }
+    .ac-item.ac-add-new {
+        color: var(--accent-green); font-weight: 600; border-top: 1px solid var(--border-light); background: rgba(34,197,94,0.05);
+    }
+    .ac-item.ac-add-new:hover { background: rgba(34,197,94,0.1); }
+
+    /* ── form actions ── */
+    .form-actions { display: flex; gap: .6rem; justify-content: center; padding-top: var(--space-3); flex-wrap: wrap; }
+    .btn {
+        padding: .6rem 1.8rem; border-radius: 999px; font-size: .8rem; font-weight: 700;
+        cursor: pointer; transition: all .2s; border: none; font-family: 'Vazir', sans-serif;
+        text-decoration: none; display: inline-flex; align-items: center; gap: 0.35rem;
+    }
+    .btn-primary   { background: var(--accent-green, #22C55E); color: white; }
+    .btn-primary:hover { background: #16A34A; }
+    .btn-secondary { background: var(--bg-card); color: var(--text-secondary); border: 1.5px solid var(--border-default); }
+    .btn-secondary:hover { border-color: var(--accent-indigo); color: var(--accent-indigo); }
+
+    /* ── add-product modal ── */
+    .modal-overlay {
+        display: none; position: fixed; inset: 0; z-index: 2000;
+        background: rgba(15,23,42,.45); align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+        background: var(--bg-card); border-radius: var(--radius-2xl); padding: 24px;
+        width: min(440px, 94vw); box-shadow: var(--shadow-xl);
+    }
+    .modal-box h3 { font-size: 16px; margin-bottom: 8px; color: var(--text-primary); font-weight: 800; display: flex; align-items: center; gap: 0.45rem; }
+    .modal-box h3 i { color: var(--accent-indigo); }
+    .modal-hint { font-size: 12px; color: var(--text-secondary); margin: 0 0 14px; line-height: 1.7; }
+    .modal-field  { margin-bottom: 14px; }
+    .modal-field label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 700; }
+    .modal-field input, .modal-field select, .modal-field textarea {
+        width: 100%; padding: 9px 12px; border: 1.5px solid var(--border-default);
+        border-radius: var(--radius-md); font-size: 14px; font-family: Vazir, sans-serif;
+        box-sizing: border-box;
+    }
+    .modal-field input:focus, .modal-field select:focus, .modal-field textarea:focus { outline: none; border-color: var(--accent-indigo); box-shadow: 0 0 0 3px rgba(139,92,246,0.12); }
+    .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .modal-btn-save {
+        flex: 1; padding: 10px; background: var(--accent-green, #22C55E); color: white; border: none;
+        border-radius: 999px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: Vazir, sans-serif;
+        transition: background .15s;
+    }
+    .modal-btn-save:hover { background: #16A34A; }
+    .modal-btn-cancel {
+        padding: 10px 20px; background: var(--bg-subtle); color: var(--text-secondary); border: 1.5px solid var(--border-default);
+        border-radius: 999px; font-size: 14px; cursor: pointer; font-family: Vazir, sans-serif;
+    }
+    .modal-err { color: #dc2626; font-size: 13px; margin-top: 6px; }
+
+    /* ── stock hint ── */
+    .entry-stock-hint { margin-top: 8px; font-size: 13px; }
+    .entry-stock-hint.ok { color: #047857; }
+    .entry-stock-hint.warn { color: #b45309; }
+    .entry-stock-hint.err { color: #b91c1c; }
+    .row-stock-line { margin-top: 4px; font-size: 12px; }
+    .row-stock-line.ok { color: #047857; }
+    .row-stock-line.warn { color: #b45309; }
+    .row-stock-line .alt-btn {
+        background: #fef3c7; border: 1px solid #f59e0b; color: #92400e;
+        border-radius: 6px; padding: 2px 10px; font-size: 12px; cursor: pointer;
+        margin-right: 6px; font-family: Vazir, sans-serif;
+    }
+    .row-stock-line .alt-btn:hover { background: #fde68a; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <div class="ph-main">
+            <div class="ph-icon"><i class="fas fa-clipboard-list"></i></div>
+            <h1>ثبت درخواست از انبار</h1>
+        </div>
+        <div class="user-badge"><i class="fas fa-user"></i> {{ user.get_role_display }}</div>
+    </div>
+
+    <div class="info-box">
+        <i class="fas fa-circle-info"></i>
+        <span><strong>راهنما:</strong> از طریق این فرم می‌توانید درخواست کالا از انبار ثبت نمایید. ابتدا کالاهای مورد نیاز را به لیست اضافه کرده، سپس فرم را ارسال کنید. درخواست شما توسط مسئول انبار/خرید بررسی خواهد شد.</span>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:.75rem;margin-bottom:1rem;color:#92400e;">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% include 'partials/receipt_gate_banner.html' %}
+
+    <form method="post" id="warehouseRequestForm">
+        {% csrf_token %}
+        {{ submitted_items|json_script:"submittedItemsData" }}
+
+        <!-- 1. Single entry form at the top -->
+        <div class="entry-form-section">
+            <h3><i class="fas fa-plus-circle"></i> افزودن کالا</h3>
+            <div class="entry-fields">
+                <div class="form-group">
+                    <label>نام کالا *</label>
+                    <div class="autocomplete-wrap">
+                        <input type="text" id="entryProductName" class="form-control ac-input"
+                               placeholder="جستجو یا نام کالا..."
+                               autocomplete="off"
+                               oninput="onAcInput(this)"
+                               onkeydown="onAcKeydown(event)">
+                        <input type="hidden" id="entryProductId" value="">
+                        <div class="autocomplete-dropdown" id="entryAcDrop"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>مقدار *</label>
+                    <input type="number" id="entryQuantity" class="form-control" step="0.01" placeholder="0"
+                           onkeydown="if(event.key==='Enter'){event.preventDefault();addItemToList();}">
+                </div>
+                <div class="form-group">
+                    <label>واحد</label>
+                    <select id="entryUnit" class="form-control"
+                            {% if user.role in 'kitchen,bar,counter,cashier,facilities,requester' %}disabled{% endif %}></select>
+                </div>
+            </div>
+            <div class="form-group entry-description">
+                <label>توضیحات</label>
+                <textarea id="entryDescription" class="form-control" rows="2" placeholder="توضیحات اختیاری..."></textarea>
+            </div>
+            <div id="entryStockHint" class="entry-stock-hint" style="display:none;"></div>
+            <div class="entry-actions">
+                <button type="button" class="btn-add" id="addToListBtn" onclick="addItemToList()"><i class="fas fa-plus"></i> افزودن</button>
+                <button type="button" class="btn-cancel-edit" id="cancelEditBtn" style="display:none" onclick="cancelEdit()">انصراف</button>
+            </div>
+        </div>
+
+        <!-- 2. Items table -->
+        <div class="items-table-section">
+            <h3><i class="fas fa-list-check"></i> کالاهای افزوده شده</h3>
+            <div class="table-wrap">
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th class="col-num">#</th>
+                            <th>نام کالا</th>
+                            <th class="col-qty">مقدار</th>
+                            <th class="col-unit">واحد</th>
+                            <th>توضیحات</th>
+                            <th class="col-actions">عملیات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemsTableBody"></tbody>
+                </table>
+            </div>
+            <div class="empty-state" id="emptyState">هنوز کالایی اضافه نشده است. فرم بالا را پر کرده و دکمه «افزودن» را بزنید.</div>
+        </div>
+
+        <!-- 3. Hidden fields for POST submission -->
+        <div id="hiddenFieldsContainer"></div>
+
+        <!-- 4. Action buttons -->
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" {% if receipt_gate %}disabled title="ابتدا دریافت کالاهای قبلی را تایید کنید"{% endif %}>ثبت نهایی</button>
+            <button type="submit" class="btn btn-secondary" {% if receipt_gate %}disabled title="ابتدا دریافت کالاهای قبلی را تایید کنید"{% endif %}>ارسال</button>
+            <a href="{% url 'mobile_dashboard' cafe_code=cafe_code %}" class="btn btn-secondary">انصراف</a>
+        </div>
+    </form>
+</div>
+
+<!-- Add new product modal -->
+<div class="modal-overlay" id="addProductModal">
+    <div class="modal-box">
+        <h3><i class="fas fa-plus-circle"></i> افزودن کالای جدید</h3>
+        <div class="modal-field">
+            <label>نام کالا *</label>
+            <input type="text" id="newProductName" placeholder="نام کالا را وارد کنید...">
+        </div>
+        <div class="modal-field">
+            <label>واحد</label>
+            <select id="newProductUnit">
+                <option value="عدد">عدد</option>
+                <option value="کیلوگرم">کیلوگرم</option>
+                <option value="گرم">گرم</option>
+                <option value="لیتر">لیتر</option>
+                <option value="بسته">بسته</option>
+                <option value="کارتن">کارتن</option>
+                <option value="جعبه">جعبه</option>
+                <option value="شیشه">شیشه</option>
+                <option value="قوطی">قوطی</option>
+                <option value="بطری">بطری</option>
+                <option value="پاکت">پاکت</option>
+            </select>
+        </div>
+        <div class="modal-field">
+            <label>توضیحات *</label>
+            <textarea id="newProductDescription" rows="3" placeholder="توضیحات را وارد کنید..."></textarea>
+            <div class="modal-err" id="newProductErr"></div>
+        </div>
+        <div class="modal-actions">
+            <button class="modal-btn-save" onclick="submitNewProduct()">ذخیره و انتخاب</button>
+            <button class="modal-btn-cancel" onclick="closeAddProductModal()">انصراف</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // ردیف‌هایی که سرور در آخرین ارسال دیده — اگر ارسال رد شد، همان ردیف‌ها
+    // برمی‌گردند تا کاربر از صفر شروع نکند.
+    let items = [];
+    try {
+        const seedEl = document.getElementById('submittedItemsData');
+        const seed = seedEl ? JSON.parse(seedEl.textContent || '[]') : [];
+        items = (Array.isArray(seed) ? seed : []).map((row, i) => ({ ...row, id: i + 1 }));
+    } catch (err) {
+        items = [];
+    }
+    let nextItemId = items.length + 1;
+    let editingId = null;
+    let pendingProductItemId = null;
+    let isCheckingStock = false; // جلوگیری از ثبت دوباره هنگام کلیک/اینتر مکرر در طول بررسی موجودی
+    let selectedProductName = '';
+
+    const AUTOCOMPLETE_URL = "{% url 'products_autocomplete' cafe_code=cafe_code %}";
+    const QUICK_ADD_URL    = "{% url 'quick_add_product' cafe_code=cafe_code %}";
+    const AVAILABILITY_URL = "{% url 'check_product_availability' cafe_code=cafe_code %}";
+    const CSRF_TOKEN       = "{{ csrf_token }}";
+    const IS_REQUESTER     = {% if user.role in 'kitchen,bar,counter,cashier,facilities,requester' %}true{% else %}false{% endif %};
+
+    function buildUnitOptions(selected) {
+        const units = ['عدد','کیلوگرم','گرم','لیتر','بسته','کارتن','جعبه','شیشه','قوطی','بطری','پاکت'];
+        if (selected && !units.includes(selected)) {
+            units.unshift(selected);
+        }
+        return units.map(u => `<option value="${escapeHtml(u)}" ${u === selected ? 'selected' : ''}>${escapeHtml(u)}</option>`).join('');
+    }
+
+    // Init entry unit select
+    document.getElementById('entryUnit').innerHTML = buildUnitOptions('عدد');
+
+    function escapeHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function escapeJs(str) {
+        return String(str).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    }
+
+    // ── CRUD ────────────────────────────────────────────────────────────
+
+    async function addItemToList() {
+        const nameInput = document.getElementById('entryProductName');
+        const qtyInput = document.getElementById('entryQuantity');
+        const name = nameInput.value.trim();
+        const quantity = qtyInput.value;
+        const unit = document.getElementById('entryUnit').value;
+        const description = document.getElementById('entryDescription').value.trim();
+        const productId = document.getElementById('entryProductId').value;
+
+        // Validation
+        if (!name) {
+            nameInput.style.borderColor = '#ef4444';
+            nameInput.focus();
+            alert('لطفاً نام کالا را وارد کنید');
+            return;
+        }
+        if (IS_REQUESTER && (!productId || name !== selectedProductName)) {
+            nameInput.style.borderColor = '#ef4444';
+            nameInput.focus();
+            alert('⚠️ لطفاً کالا را از لیست انتخاب کنید یا به عنوان کالای جدید ثبت نمایید.');
+            return;
+        }
+        if (!quantity || parseFloat(quantity) <= 0) {
+            qtyInput.style.borderColor = '#ef4444';
+            qtyInput.focus();
+            alert('لطفاً مقدار معتبر وارد کنید');
+            return;
+        }
+
+        // Reset validation styles
+        nameInput.style.borderColor = '';
+        qtyInput.style.borderColor = '';
+
+        // بررسی موجودی انبار برای محصول انتخاب‌شده
+        // (فقط وقتی محصول از لیست پیشنهادها انتخاب شده باشد)
+        let stockInfo = null;
+        if (productId) {
+            if (isCheckingStock) return; // کلیک/اینتر مکرر حین بررسی موجودی نادیده گرفته می‌شود
+            isCheckingStock = true;
+            try {
+                const checkUrl = AVAILABILITY_URL + '?product_id=' + encodeURIComponent(productId) +
+                                 '&qty=' + encodeURIComponent(quantity);
+                try {
+                    const resp = await fetch(checkUrl);
+                    if (resp.ok) stockInfo = await resp.json();
+                } catch (e) { /* خطای شبکه: بررسی موجودی نادیده گرفته می‌شود */ }
+                showEntryStockHint(stockInfo);
+            } finally {
+                isCheckingStock = false;
+            }
+        }
+
+        if (editingId !== null) {
+            // Update existing item
+            const idx = items.findIndex(it => it.id === editingId);
+            if (idx !== -1) {
+                items[idx] = { ...items[idx], name, quantity, unit, description, productId, stockInfo };
+            }
+            // Reset editing mode
+            editingId = null;
+            document.getElementById('addToListBtn').innerHTML = '<i class="fas fa-plus"></i> افزودن';
+            document.getElementById('cancelEditBtn').style.display = 'none';
+        } else {
+            // Add new item
+            items.push({
+                id: nextItemId++,
+                name,
+                quantity,
+                unit,
+                description,
+                productId,
+                stockInfo
+            });
+        }
+
+        clearEntryForm();
+        renderItemsTable();
+    }
+
+    // ── بررسی موجودی انبار ───────────────────────────────
+
+    function showEntryStockHint(stockInfo) {
+        const hint = document.getElementById('entryStockHint');
+        if (!hint) return;
+        hint.className = 'entry-stock-hint';
+        hint.style.display = 'none';
+        if (!stockInfo) return;
+        if (stockInfo.available) {
+            hint.className = 'entry-stock-hint ok';
+            hint.textContent = 'موجودی انبار: ' + stockInfo.stock_trade + ' ' + stockInfo.unit_label +
+                (stockInfo.warehouses && stockInfo.warehouses.length ? ' (' + stockInfo.warehouses.join('، ') + ')' : '');
+        } else {
+            hint.className = 'entry-stock-hint err';
+            hint.textContent = 'این کالا در انبار موجود نیست.';
+        }
+        hint.style.display = 'block';
+    }
+
+    function editItem(id) {
+        const item = items.find(it => it.id === id);
+        if (!item) return;
+
+        // Fill entry form with item data
+        document.getElementById('entryProductName').value = item.name;
+        document.getElementById('entryProductId').value = item.productId || '';
+        selectedProductName = item.productId ? item.name : '';
+        document.getElementById('entryQuantity').value = item.quantity;
+        document.getElementById('entryUnit').innerHTML = buildUnitOptions(item.unit);
+        document.getElementById('entryDescription').value = item.description || '';
+
+        // Set editing mode
+        editingId = id;
+        document.getElementById('addToListBtn').innerHTML = '<i class="fas fa-check"></i> ذخیره تغییرات';
+        document.getElementById('cancelEditBtn').style.display = 'inline-block';
+
+        // Scroll to form
+        document.querySelector('.entry-form-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.getElementById('entryProductName').focus();
+    }
+
+    function deleteItem(id) {
+        if (items.length <= 1) {
+            if (!confirm('آیا مایل به حذف آخرین کالا هستید؟ پس از حذف، لیست خالی می‌شود.')) return;
+        }
+        items = items.filter(it => it.id !== id);
+        renderItemsTable();
+
+        // If we were editing this item, cancel edit
+        if (editingId === id) {
+            cancelEdit();
+        }
+    }
+
+    function cancelEdit() {
+        editingId = null;
+        document.getElementById('addToListBtn').innerHTML = '<i class="fas fa-plus"></i> افزودن';
+        document.getElementById('cancelEditBtn').style.display = 'none';
+        clearEntryForm();
+    }
+
+    function clearEntryForm() {
+        document.getElementById('entryProductName').value = '';
+        document.getElementById('entryProductId').value = '';
+        selectedProductName = '';
+        document.getElementById('entryQuantity').value = '';
+        document.getElementById('entryUnit').innerHTML = buildUnitOptions('عدد');
+        document.getElementById('entryDescription').value = '';
+        const hint = document.getElementById('entryStockHint');
+        if (hint) { hint.style.display = 'none'; hint.className = 'entry-stock-hint'; }
+        document.getElementById('entryProductName').style.borderColor = '';
+        document.getElementById('entryQuantity').style.borderColor = '';
+        document.getElementById('entryProductName').focus();
+    }
+
+    function renderItemsTable() {
+        const tbody = document.getElementById('itemsTableBody');
+        const emptyState = document.getElementById('emptyState');
+
+        tbody.innerHTML = '';
+
+        if (items.length === 0) {
+            emptyState.style.display = 'block';
+            return;
+        }
+
+        emptyState.style.display = 'none';
+
+        items.forEach((item, idx) => {
+            const tr = document.createElement('tr');
+            const displayName = item.name;
+            let stockHtml = '';
+            if (item.stockInfo) {
+                if (item.stockInfo.available) {
+                    stockHtml = `<div class="row-stock-line ok">موجودی انبار: ${item.stockInfo.stock_trade} ${item.stockInfo.unit_label}</div>`;
+                } else {
+                    stockHtml = '<div class="row-stock-line warn">این کالا در انبار موجود نیست.</div>';
+                }
+            }
+            tr.innerHTML = `
+                <td class="col-num">${idx + 1}</td>
+                <td>${escapeHtml(displayName)}${stockHtml}</td>
+                <td class="col-qty">${item.quantity}</td>
+                <td class="col-unit">${item.unit}</td>
+                <td class="col-desc" title="${escapeHtml(item.description || '')}">${item.description ? escapeHtml(item.description) : '—'}</td>
+                <td class="col-actions">
+                    <button type="button" class="action-icon-btn edit-btn" onclick="editItem(${item.id})" title="ویرایش"><i class="fas fa-pen"></i></button>
+                    <button type="button" class="action-icon-btn delete-btn" onclick="deleteItem(${item.id})" title="حذف"><i class="fas fa-trash"></i></button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // ── Autocomplete (single entry form) ────────────────────────────────
+
+    let acTimer = null;
+    let acResults = [];
+    let acHighlightIdx = -1;
+
+    function onAcInput(input) {
+        const q = input.value.trim();
+        document.getElementById('entryProductId').value = '';
+        selectedProductName = '';
+        showEntryStockHint(null);
+        clearTimeout(acTimer);
+        if (q.length < 1) { closeDropdown(); return; }
+        acTimer = setTimeout(() => fetchSuggestions(q), 250);
+    }
+
+    function fetchSuggestions(q) {
+        fetch(`${AUTOCOMPLETE_URL}?q=${encodeURIComponent(q)}`)
+            .then(r => r.json())
+            .then(data => {
+                acResults = data.results || [];
+                renderDropdown(q);
+            }).catch(() => closeDropdown());
+    }
+
+    function renderDropdown(q) {
+        const drop = document.getElementById('entryAcDrop');
+        if (!drop) return;
+        let html = acResults.map((p, idx) =>
+            `<div class="ac-item" data-idx="${idx}" onmousedown="selectProduct(${idx})">
+                <div class="ac-name">${escapeHtml(p.label || p.name)}</div>
+                ${p.category ? `<div class="ac-cat">${escapeHtml(p.category)}</div>` : ''}
+            </div>`
+        ).join('');
+        html += `<div class="ac-item ac-add-new" onmousedown="openAddProductModal('${escapeHtml(q)}')">
+            <i class="fas fa-plus"></i> افزودن «${escapeHtml(q)}» به عنوان کالای جدید
+        </div>`;
+        drop.innerHTML = html;
+        drop.classList.add('open');
+        acHighlightIdx = -1;
+    }
+
+    function closeDropdown() {
+        const drop = document.getElementById('entryAcDrop');
+        if (drop) drop.classList.remove('open');
+        acHighlightIdx = -1;
+    }
+
+    function selectProduct(idx) {
+        const p = acResults[idx];
+        if (!p) return;
+        document.getElementById('entryProductName').value = p.name;
+        document.getElementById('entryProductId').value = p.id || '';
+        selectedProductName = p.name || '';
+        document.getElementById('entryUnit').innerHTML = buildUnitOptions(p.unit || 'عدد');
+        closeDropdown();
+        document.getElementById('entryQuantity').focus();
+    }
+
+    function onAcKeydown(e) {
+        const drop = document.getElementById('entryAcDrop');
+        if (!drop || !drop.classList.contains('open')) {
+            // If dropdown is closed, Enter moves to quantity
+            if (e.key === 'Enter' && e.target.id === 'entryProductName') {
+                e.preventDefault();
+                document.getElementById('entryQuantity').focus();
+            }
+            return;
+        }
+        const items = drop.querySelectorAll('.ac-item');
+        if (!items.length) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            acHighlightIdx = Math.min((acHighlightIdx === -1 ? 0 : acHighlightIdx + 1), items.length - 1);
+            items.forEach(el => el.classList.remove('highlighted'));
+            items[acHighlightIdx]?.classList.add('highlighted');
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            acHighlightIdx = Math.max((acHighlightIdx === -1 ? items.length - 1 : acHighlightIdx - 1), 0);
+            items.forEach(el => el.classList.remove('highlighted'));
+            items[acHighlightIdx]?.classList.add('highlighted');
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (acHighlightIdx >= 0 && acHighlightIdx < items.length) {
+                items[acHighlightIdx].dispatchEvent(new MouseEvent('mousedown'));
+            }
+        } else if (e.key === 'Escape') {
+            closeDropdown();
+        }
+    }
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.autocomplete-wrap')) {
+            closeDropdown();
+        }
+    });
+
+    // ── Add New Product Modal ─────────────────────────────────────────
+
+    function openAddProductModal(prefillName = '') {
+        pendingProductItemId = 'entry';
+        document.getElementById('newProductName').value = prefillName;
+        document.getElementById('newProductDescription').value = '';
+        document.getElementById('newProductErr').textContent = '';
+        document.getElementById('addProductModal').classList.add('open');
+        setTimeout(() => document.getElementById('newProductName').focus(), 100);
+    }
+
+    function closeAddProductModal() {
+        document.getElementById('addProductModal').classList.remove('open');
+        pendingProductItemId = null;
+    }
+
+    function submitNewProduct() {
+        const name = document.getElementById('newProductName').value.trim();
+        const unit = document.getElementById('newProductUnit').value;
+        const description = document.getElementById('newProductDescription').value.trim();
+        const errEl = document.getElementById('newProductErr');
+        if (!name) { errEl.textContent = 'نام کالا اجباری است'; return; }
+        if (!description) {
+            errEl.textContent = '⚠️ توضیحات اجباری است — لطفاً توضیح کوتاهی بنویس.';
+            document.getElementById('newProductDescription').focus();
+            return;
+        }
+        const btn = document.querySelector('.modal-btn-save');
+        btn.disabled = true; btn.textContent = 'در حال ذخیره...';
+        fetch(QUICK_ADD_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+            body: JSON.stringify({ name, unit, description })
+        }).then(r => r.json()).then(data => {
+            btn.disabled = false; btn.textContent = 'ذخیره و انتخاب';
+            if (data.success) {
+                document.getElementById('entryProductName').value = data.product.name;
+                document.getElementById('entryProductId').value = data.product.id;
+                selectedProductName = data.product.name || '';
+                document.getElementById('entryUnit').innerHTML = buildUnitOptions(data.product.unit || 'عدد');
+                if (description && !document.getElementById('entryDescription').value.trim()) {
+                    document.getElementById('entryDescription').value = description;
+                }
+                closeAddProductModal();
+            } else {
+                errEl.textContent = data.error || 'خطا در افزودن کالا';
+            }
+        }).catch(() => {
+            btn.disabled = false; btn.textContent = 'ذخیره و انتخاب';
+            errEl.textContent = 'خطای شبکه. لطفاً دوباره تلاش کنید.';
+        });
+    }
+
+    document.getElementById('newProductName').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); submitNewProduct(); }
+    });
+
+    document.getElementById('addProductModal').addEventListener('click', function(e) {
+        if (e.target === this) closeAddProductModal();
+    });
+
+    // ── Form submission ────────────────────────────────────────────────
+
+    function populateHiddenFields() {
+        const container = document.getElementById('hiddenFieldsContainer');
+        container.innerHTML = '';
+
+        items.forEach(item => {
+            const fields = [
+                { name: 'product_name', value: item.name },
+                { name: 'item_product_id', value: item.productId || '' },
+                { name: 'item_quantity', value: item.quantity },
+                { name: 'item_unit', value: item.unit },
+                { name: 'item_description', value: item.description || '' },
+            ];
+            fields.forEach(f => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = f.name;
+                input.value = f.value;
+                container.appendChild(input);
+            });
+        });
+    }
+
+    document.getElementById('warehouseRequestForm').addEventListener('submit', function(e) {
+        // Validate at least one item
+        if (items.length === 0) {
+            e.preventDefault();
+            alert('لطفاً حداقل یک کالا اضافه کنید');
+            return;
+        }
+
+        // Check for unsaved data in entry form
+        const entryName = document.getElementById('entryProductName').value.trim();
+        if (entryName) {
+            if (!confirm('در فرم افزودن کالا اطلاعاتی وجود دارد که ذخیره نشده است. آیا مایل به ادامه هستید؟')) {
+                e.preventDefault();
+                return;
+            }
+        }
+
+        populateHiddenFields();
+    });
+
+    // ── Init ──────────────────────────────────────────────────────────
+    renderItemsTable();
+</script>
+{% endblock %}

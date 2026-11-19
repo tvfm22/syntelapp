@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}کالاهای دریافتی من - Kuker{% endblock %}
+
+{% block extra_css %}
+<style>
+    .rcv-page { max-width: 900px; margin: 0 auto; }
+
+    .rcv-page .page-header {
+        background: #ffffff;
+        border: 1px solid var(--gray-200);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-sm);
+        height: auto;
+        min-height: 68px;
+        padding: 0.85rem 1.2rem;
+        margin-bottom: 1rem;
+    }
+
+    .rcv-summary {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 0.85rem; flex-wrap: wrap;
+        border-radius: var(--radius-xl); padding: 0.9rem 1.15rem; margin-bottom: 1.25rem;
+        box-shadow: var(--shadow-xs);
+    }
+    .rcv-summary.is-pending {
+        background: #F5F3FF;
+        border: 1px solid #DDD6FE;
+    }
+    .rcv-summary.is-done {
+        background: #ECFDF5;
+        border: 1px solid #A7F3D0;
+    }
+    .rcv-summary-text {
+        font-size: 0.9rem; font-weight: 700;
+        display: inline-flex; align-items: center; gap: 0.6rem;
+    }
+    .rcv-summary.is-pending .rcv-summary-text { color: #3B0764; }
+    .rcv-summary.is-done .rcv-summary-text { color: #065F46; }
+    .rcv-summary-icon {
+        width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+        display: inline-flex; align-items: center; justify-content: center; font-size: 0.95rem;
+    }
+    .rcv-summary.is-pending .rcv-summary-icon { background: #EDE9FE; color: #6D28D9; }
+    .rcv-summary.is-done .rcv-summary-icon { background: #D1FAE5; color: #047857; }
+
+    .rcv-section-title {
+        font-size: 0.94rem; font-weight: 800; color: var(--dark);
+        margin: 1.35rem 0 0.75rem; display: flex; align-items: center; gap: 0.5rem;
+        padding-bottom: 0.45rem; border-bottom: 1px solid var(--gray-200);
+    }
+    .rcv-section-title .count {
+        border-radius: 999px; font-size: 0.75rem; padding: 0.12rem 0.6rem; font-weight: 700;
+    }
+    .rcv-section-title .count.is-pending { background: #EDE9FE; color: #5B21B6; }
+    .rcv-section-title .count.is-done { background: #D1FAE5; color: #065F46; }
+
+    .rcv-list { display: flex; flex-direction: column; gap: 0.8rem; }
+
+    .rcv-card {
+        background: #ffffff; border: 1px solid var(--gray-200);
+        border-radius: var(--radius-xl); padding: 1rem 1.15rem;
+        box-shadow: var(--shadow-xs); transition: border-color 0.15s;
+    }
+    .rcv-card.pending { border-color: #C4B5FD; border-right: 4px solid var(--primary); }
+    .rcv-card.confirmed { background: #FBFDFC; border-right: 4px solid #10B981; }
+
+    .rcv-head {
+        display: flex; justify-content: space-between; align-items: flex-start;
+        gap: 0.6rem; flex-wrap: wrap;
+    }
+    .rcv-name {
+        font-size: 0.98rem; font-weight: 700; color: var(--dark);
+        display: inline-flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;
+    }
+    .rcv-req {
+        font-size: 0.78rem; font-weight: 600; color: var(--gray-500);
+        text-decoration: none; white-space: nowrap;
+        background: var(--gray-50); border: 1px solid var(--gray-200);
+        padding: 0.2rem 0.6rem; border-radius: 8px;
+    }
+    .rcv-req:hover { color: var(--primary); border-color: var(--primary); }
+
+    .rcv-meta { font-size: 0.82rem; color: var(--gray-500); margin-top: 0.45rem; }
+    .rcv-meta b { color: var(--dark); font-weight: 700; }
+
+    .rcv-deliveries { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.55rem; }
+    .rcv-chip {
+        display: inline-flex; align-items: center; gap: 0.35rem;
+        background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46;
+        border-radius: 999px; padding: 0.28rem 0.75rem; font-size: 0.8rem; font-weight: 700;
+    }
+    .rcv-chip .src { font-weight: 500; color: #047857; font-size: 0.74rem; }
+
+    .rcv-actions { margin-top: 0.8rem; }
+
+    .rcv-btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        gap: 0.45rem; min-height: 42px; padding: 0.5rem 1.15rem;
+        border: none; border-radius: 10px; font-family: inherit;
+        font-size: 0.86rem; font-weight: 700; cursor: pointer; transition: all 0.15s;
+    }
+    .rcv-btn-confirm { background: var(--primary); color: #fff; width: 100%; }
+    .rcv-btn-confirm:hover { background: var(--primary-dark); }
+    .rcv-btn-all {
+        background: var(--primary-dark); color: #fff; min-height: 38px; font-size: 0.82rem;
+        padding: 0.45rem 1rem; text-decoration: none;
+    }
+    .rcv-btn-all:hover { background: #5B21B6; color: #fff; }
+    .rcv-summary.is-done .rcv-btn-all { background: #059669; color: #fff; }
+    .rcv-summary.is-done .rcv-btn-all:hover { background: #047857; color: #fff; }
+
+    .rcv-confirmed-tag {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        font-size: 0.8rem; font-weight: 700; color: #065F46;
+        background: #D1FAE5; border-radius: 999px; padding: 0.3rem 0.8rem;
+    }
+
+    .rcv-empty {
+        text-align: center; padding: 3rem 1.5rem; color: var(--gray-500);
+        background: #fff; border: 1px dashed var(--gray-300); border-radius: var(--radius-xl);
+    }
+    .rcv-empty .icon { font-size: 2.4rem; margin-bottom: 0.6rem; }
+    .rcv-empty .text { font-size: 0.95rem; font-weight: 700; color: var(--dark); }
+
+    @media (max-width: 540px) {
+        .rcv-page .page-header { padding: 0.75rem 0.95rem; }
+        .rcv-card { padding: 0.85rem; }
+        .rcv-summary {
+            padding: 0.8rem 0.9rem;
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .rcv-summary form,
+        .rcv-summary .rcv-btn-all { width: 100%; }
+        .rcv-btn-confirm { font-size: 0.9rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rcv-page">
+    <div class="page-header">
+        <div class="ph-main">
+            <div class="ph-icon"><i class="fas fa-box-open"></i></div>
+            <div class="ph-title">
+                <h1>کالاهای دریافتی من</h1>
+                <div class="page-sub">مشاهده و تایید تحویل کالاهای درخواستی</div>
+            </div>
+        </div>
+    </div>
+
+    {% if pending_rows or confirmed_rows %}
+    <div class="rcv-summary {% if pending_count %}is-pending{% else %}is-done{% endif %}">
+        <span class="rcv-summary-text">
+            <span class="rcv-summary-icon">
+                {% if pending_count %}
+                <i class="fas fa-hourglass-half"></i>
+                {% else %}
+                <i class="fas fa-circle-check"></i>
+                {% endif %}
+            </span>
+            {% if pending_count %}
+            {{ pending_count }} قلم در انتظار تایید دریافت
+            {% else %}
+            همهٔ اقلام دریافتی تایید شده‌اند
+            {% endif %}
+        </span>
+        {% if pending_count > 1 %}
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="confirm_all">
+            <button type="submit" class="rcv-btn rcv-btn-all">
+                <i class="fas fa-check-double"></i> تایید دریافت همه
+            </button>
+        </form>
+        {% endif %}
+        {% if not pending_count %}
+        <a href="{% url 'purchase_request' cafe_code=cafe_code %}" class="rcv-btn rcv-btn-all">
+            <i class="fas fa-plus"></i> ثبت درخواست جدید
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if pending_rows %}
+    <div class="rcv-section-title">
+        <i class="fas fa-hourglass-half" style="color:var(--primary);"></i> در انتظار تایید دریافت
+        <span class="count is-pending">{{ pending_count }}</span>
+    </div>
+    <div class="rcv-list">
+        {% for row in pending_rows %}
+        <div class="rcv-card pending">
+            <div class="rcv-head">
+                <span class="rcv-name">
+                    {{ row.name }}
+                </span>
+                <a class="rcv-req" href="{% url 'purchase_request_detail' cafe_code=cafe_code request_id=row.request.id %}">
+                    درخواست {{ row.request.request_number }}
+                </a>
+            </div>
+            <div class="rcv-meta">
+                درخواستی: <b>{{ row.requested_qty }} {{ row.unit }}</b>
+            </div>
+            <div class="rcv-deliveries">
+                {% for d in row.deliveries %}
+                <span class="rcv-chip">
+                    <i class="fas fa-arrow-down"></i>
+                    تحویل‌شده: {{ d.qty }} {{ d.unit }}
+                    {% if d.warehouse %}<span class="src">· {{ d.warehouse }}</span>{% endif %}
+                </span>
+                {% endfor %}
+            </div>
+            <div class="rcv-actions">
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="confirm">
+                    <input type="hidden" name="item_id" value="{{ row.item.id }}">
+                    <button type="submit" class="rcv-btn rcv-btn-confirm">
+                        <i class="fas fa-circle-check"></i> تایید دریافت
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if confirmed_rows %}
+    <div class="rcv-section-title">
+        <i class="fas fa-circle-check" style="color:#10B981;"></i> تاییدشده
+        <span class="count is-done">{{ confirmed_rows|length }}</span>
+    </div>
+    <div class="rcv-list">
+        {% for row in confirmed_rows %}
+        <div class="rcv-card confirmed">
+            <div class="rcv-head">
+                <span class="rcv-name">
+                    {{ row.name }}
+                </span>
+                <a class="rcv-req" href="{% url 'purchase_request_detail' cafe_code=cafe_code request_id=row.request.id %}">
+                    درخواست {{ row.request.request_number }}
+                </a>
+            </div>
+            <div class="rcv-deliveries">
+                {% for d in row.deliveries %}
+                <span class="rcv-chip">
+                    <i class="fas fa-arrow-down"></i>
+                    تحویل‌شده: {{ d.qty }} {{ d.unit }}
+                    {% if d.warehouse %}<span class="src">· {{ d.warehouse }}</span>{% endif %}
+                </span>
+                {% endfor %}
+            </div>
+            <div class="rcv-actions">
+                <span class="rcv-confirmed-tag">
+                    <i class="fas fa-circle-check"></i>
+                    تایید دریافت — {{ row.confirmed_at|jalali_datetime }}
+                </span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if not pending_rows and not confirmed_rows %}
+    <div class="rcv-empty">
+        <div class="icon">📦</div>
+        <div class="text">هنوز کالایی تحویل نگرفته‌اید</div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

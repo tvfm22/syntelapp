@@ -1,0 +1,225 @@
+﻿{% load static %}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>انتخاب کافه - Kuker</title>
+    
+    <!-- Vazir Font -->
+    <link href="{% static 'fonts/vazir-font.css' %}" rel="stylesheet" type="text/css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Vazir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            padding: 50px 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+        .header h1 {
+            color: #1a202c;
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .header p {
+            color: #718096;
+            font-size: 16px;
+        }
+        .user-info {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 40px;
+            text-align: center;
+            color: #2d3748;
+            border: 1px solid #e2e8f0;
+        }
+        .user-info span {
+            font-weight: 500;
+        }
+        .cafes-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+        .cafe-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 32px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .cafe-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+        }
+        .cafe-icon {
+            width: 60px;
+            height: 60px;
+            background: #667eea;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+        }
+        .cafe-icon svg {
+            width: 28px;
+            height: 28px;
+            fill: white;
+        }
+        .cafe-card h2 {
+            color: #1a202c;
+            font-size: 20px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        .cafe-card p {
+            color: #718096;
+            font-size: 14px;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+        .cafe-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-family: 'Vazir', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            width: 100%;
+            transition: background-color 0.2s ease;
+        }
+        .cafe-btn:hover {
+            background: #5a67d8;
+        }
+        .logout-link {
+            color: #e53e3e;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 30px;
+            padding: 10px 20px;
+            border: 1px solid #e53e3e;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .logout-link:hover {
+            background: #e53e3e;
+            color: white;
+        }
+        .error-message {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border: 1px solid #feb2b2;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            body {
+                padding: 15px;
+            }
+            .container {
+                padding: 30px 20px;
+            }
+            .header h1 {
+                font-size: 24px;
+            }
+            .cafes-list {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            .cafe-card {
+                padding: 24px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>سیستم مدیریت خرید</h1>
+            <p>لطفاً کافه مورد نظر خود را انتخاب کنید</p>
+        </div>
+        
+        <div class="user-info">
+            خوش آمدید، <span>{{ user.get_full_name|default:user.username }}</span>
+            ({{ user.get_role_display }})
+        </div>
+        
+        {% if messages %}
+        <div class="error-message">
+            {% for message in messages %}
+            {{ message }}
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        <div class="cafes-list">
+            {% for cafe in cafes %}
+            <form method="post" class="cafe-card-form">
+                {% csrf_token %}
+                <input type="hidden" name="cafe_code" value="{{ cafe.code }}">
+                <div class="cafe-card" onclick="this.closest('form').submit();">
+                    <div class="cafe-icon">
+                        {% if cafe.code == 'local' %}
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white">
+                            <path d="M2 21v-2h20v2H2zm2-4a5 5 0 01-2-4V7h14v6a5 5 0 01-2 4v0H4zm1-9v5a4 4 0 004 4h4a4 4 0 004-4V8H5zm13-1h3a2 2 0 012 2v2a2 2 0 01-2 2h-3V7z"/>
+                        </svg>
+                        {% else %}
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white">
+                            <path d="M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z"/>
+                        </svg>
+                        {% endif %}
+                    </div>
+                    <h2>{{ cafe.name }}</h2>
+                    <p>{{ cafe.address|default:"آدرس ثبت نشده" }}</p>
+                    <button type="submit" class="cafe-btn">ورود به این کافه</button>
+                </div>
+            </form>
+            {% empty %}
+            <div class="cafe-card">
+                <h2>کافه‌ای یافت نشد</h2>
+                <p>لطفاً با مدیر سیستم تماس بگیرید</p>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div style="text-align: center;">
+            <a href="{% url 'logout' %}" class="logout-link">خروج از سیستم</a>
+        </div>
+    </div>
+</body>
+</html>
+
+

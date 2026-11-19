@@ -1,0 +1,463 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}مشاهده فاکتور {{ invoice.invoice_number }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #4f46e5;
+        --primary-hover: #4338ca;
+        --bg-color: #f9fafb;
+        --card-bg: #ffffff;
+        --text-main: #111827;
+        --text-muted: #6b7280;
+        --border-color: #e5e7eb;
+    }
+
+    body {
+        background-color: var(--bg-color);
+        color: var(--text-main);
+        font-family: 'Vazir', system-ui, -apple-system, sans-serif;
+    }
+
+    .minimal-card {
+        background: var(--card-bg);
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        border: 1px solid var(--border-color);
+        padding: 0;
+        margin-bottom: 2rem;
+        overflow: hidden;
+    }
+
+    .card-header-custom {
+        background-color: #f8fafc;
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .card-body-custom {
+        padding: 1.5rem;
+    }
+
+    .page-header {
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .page-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-main);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .form-control-static {
+        border-radius: 6px;
+        border: 1px solid #d1d5db;
+        padding: 0.625rem 1rem;
+        font-size: 0.95rem;
+        background-color: #f9fafb;
+        font-family: 'Vazir', system-ui, -apple-system, sans-serif;
+        min-height: 38px;
+        display: flex;
+        align-items: center;
+    }
+
+    .section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-main);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .grid-2 {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+
+    .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+    }
+
+    .grid-4 {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+    }
+
+    .grid-5 {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 1rem;
+    }
+
+    @media (max-width: 768px) {
+        .grid-2, .grid-3, .grid-4, .grid-5 {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .invoice-item-row {
+        background-color: #fafafa;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        border: 1px solid var(--border-color);
+    }
+
+    .summary-panel {
+        background-color: #f8fafc;
+        border-radius: 12px;
+        padding: 1.5rem;
+        border: 1px solid var(--border-color);
+    }
+
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+        font-size: 0.95rem;
+        color: var(--text-muted);
+    }
+
+    .summary-row.total {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px dashed var(--border-color);
+        font-weight: 700;
+        color: var(--text-main);
+        font-size: 1.2rem;
+    }
+
+    .btn-primary-custom {
+        background-color: var(--primary-color);
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 500;
+        border: none;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-primary-custom:hover {
+        background-color: var(--primary-hover);
+        transform: translateY(-1px);
+        color: white;
+    }
+
+    .btn-outline-custom {
+        background-color: transparent;
+        border: 1px solid var(--border-color);
+        color: var(--text-main);
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-outline-custom:hover {
+        background-color: #f3f4f6;
+        border-color: #d1d5db;
+        color: var(--text-main);
+    }
+
+    .issue-tag {
+        display: inline-flex;
+        align-items: center;
+        background: #e0e7ff;
+        color: #4338ca;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.85rem;
+        margin-left: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .status-badge.draft {
+        background: #f3f4f6;
+        color: #6b7280;
+    }
+
+    .status-badge.sent {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .status-badge.approved {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .status-badge.paid {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .status-badge.rejected {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 1200px; margin: 0 auto; padding: 2rem 1rem;">
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1 class="page-title">
+            <span>📄</span>
+            مشاهده فاکتور
+        </h1>
+        <div style="display: flex; gap: 0.75rem;">
+            <a href="{% url 'invoice_update' cafe_code=cafe_code invoice_id=invoice.id %}" class="btn-primary-custom">
+                ✏️ ویرایش
+            </a>
+            <a href="{% url 'invoices_list' cafe_code=cafe_code %}" class="btn-outline-custom">
+                بازگشت به لیست
+            </a>
+        </div>
+    </div>
+
+    <!-- Basic Information Card -->
+    <div class="minimal-card">
+        <div class="card-header-custom">
+            <h3 class="section-title">
+                <span>ℹ️</span>
+                اطلاعات پایه
+            </h3>
+            <span class="status-badge {{ invoice.status }}">
+                {{ invoice.get_status_display }}
+            </span>
+        </div>
+        <div class="card-body-custom">
+            <div class="grid-3">
+                <div>
+                    <label class="form-label">شماره فاکتور</label>
+                    <div class="form-control-static">{{ invoice.invoice_number|default:"-" }}</div>
+                </div>
+                <div>
+                    <label class="form-label">تاریخ فاکتور</label>
+                    <div class="form-control-static">{{ invoice.invoice_date|date:"Y/m/d" }}</div>
+                </div>
+                <div>
+                    <label class="form-label">تاریخ سررسید</label>
+                    <div class="form-control-static">{{ invoice.due_date|date:"Y/m/d"|default:"-" }}</div>
+                </div>
+            </div>
+            <div class="grid-2" style="margin-top: 1rem;">
+                <div>
+                    <label class="form-label">تأمین‌کننده</label>
+                    <div class="form-control-static">{{ invoice.supplier_name }}</div>
+                </div>
+                <div>
+                    <label class="form-label">شرایط پرداخت</label>
+                    <div class="form-control-static">{{ invoice.payment_terms|default:"-" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invoice Items Card -->
+    <div class="minimal-card">
+        <div class="card-header-custom">
+            <h3 class="section-title">
+                <span>📦</span>
+                اقلام فاکتور
+            </h3>
+        </div>
+        <div class="card-body-custom">
+            {% for item in items %}
+            <div class="invoice-item-row">
+                <div class="grid-5">
+                    <div>
+                        <label class="form-label">شرح محصول</label>
+                        <div class="form-control-static">{{ item.description }}</div>
+                    </div>
+                    <div>
+                        <label class="form-label">واحد</label>
+                        <div class="form-control-static">
+                            {% if item.order_item %}
+                                {{ item.order_item.request_item.unit.name }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label">تعداد</label>
+                        <div class="form-control-static">{{ item.quantity }}</div>
+                    </div>
+                    <div>
+                        <label class="form-label">قیمت واحد (ریال)</label>
+                        <div class="form-control-static">{{ item.unit_price|floatformat:0|intcomma }}</div>
+                    </div>
+                    <div>
+                        <label class="form-label">مبلغ کل (ریال)</label>
+                        <div class="form-control-static">{{ item.line_total|floatformat:0|intcomma }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Financial Summary Card -->
+    <div class="minimal-card">
+        <div class="card-header-custom">
+            <h3 class="section-title">
+                <span>💰</span>
+                خلاصه مالی
+            </h3>
+        </div>
+        <div class="card-body-custom">
+            <div class="grid-3">
+                <div>
+                    <label class="form-label">نرخ تخفیف (%)</label>
+                    <div class="form-control-static">{{ invoice.discount_rate|floatformat:2 }}</div>
+                </div>
+                <div>
+                    <label class="form-label">مبلغ تخفیف (ریال)</label>
+                    <div class="form-control-static">{{ invoice.discount_amount|floatformat:0|intcomma }}</div>
+                </div>
+                <div>
+                    <label class="form-label">نرخ مالیات (%)</label>
+                    <div class="form-control-static">{{ invoice.tax_rate|floatformat:2 }}</div>
+                </div>
+                <div>
+                    <label class="form-label">مبلغ مالیات (ریال)</label>
+                    <div class="form-control-static">{{ invoice.tax_amount|floatformat:0|intcomma }}</div>
+                </div>
+                <div>
+                    <label class="form-label">هزینه حمل (ریال)</label>
+                    <div class="form-control-static">{{ invoice.shipping_cost|floatformat:0|intcomma }}</div>
+                </div>
+            </div>
+            <div style="margin-top: 1.5rem;">
+                <div class="summary-panel">
+                    <div class="summary-row">
+                        <span>جمع اقلام:</span>
+                        <span>{{ invoice.subtotal|floatformat:0|intcomma }} ریال</span>
+                    </div>
+                    {% if invoice.discount_amount > 0 %}
+                    <div class="summary-row">
+                        <span>تخفیف:</span>
+                        <span>-{{ invoice.discount_amount|floatformat:0|intcomma }} ریال</span>
+                    </div>
+                    {% endif %}
+                    <div class="summary-row">
+                        <span>مالیات:</span>
+                        <span>{{ invoice.tax_amount|floatformat:0|intcomma }} ریال</span>
+                    </div>
+                    {% if invoice.shipping_cost > 0 %}
+                    <div class="summary-row">
+                        <span>هزینه حمل:</span>
+                        <span>{{ invoice.shipping_cost|floatformat:0|intcomma }} ریال</span>
+                    </div>
+                    {% endif %}
+                    <div class="summary-row total">
+                        <span>مبلغ کل:</span>
+                        <span>{{ invoice.total_amount|floatformat:0|intcomma }} ریال</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional Information Card -->
+    {% if invoice.notes or invoice.issues.exists %}
+    <div class="minimal-card">
+        <div class="card-header-custom">
+            <h3 class="section-title">
+                <span>📝</span>
+                اطلاعات تکمیلی
+            </h3>
+        </div>
+        <div class="card-body-custom">
+            {% if invoice.notes %}
+            <div style="margin-bottom: 1rem;">
+                <label class="form-label">توضیحات</label>
+                <div class="form-control-static" style="min-height: 80px; align-items: flex-start;">
+                    {{ invoice.notes|linebreaks }}
+                </div>
+            </div>
+            {% endif %}
+            {% if invoice.issues.exists %}
+            <div>
+                <label class="form-label">ایرادات ثبت شده</label>
+                <div style="margin-top: 0.5rem;">
+                    {% for issue in invoice.issues.all %}
+                    <span class="issue-tag">{{ issue.name }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Payment Information -->
+    {% if invoice.payment_records %}
+    <div class="minimal-card">
+        <div class="card-header-custom">
+            <h3 class="section-title">
+                <span>💳</span>
+                اطلاعات پرداخت
+            </h3>
+        </div>
+        <div class="card-body-custom">
+            <div class="summary-panel">
+                <div class="summary-row">
+                    <span>مبلغ پرداخت شده:</span>
+                    <span>{{ invoice.paid_amount|floatformat:0|intcomma }} ریال</span>
+                </div>
+                <div class="summary-row">
+                    <span>مانده:</span>
+                    <span>{{ invoice.remaining_amount|floatformat:0|intcomma }} ریال</span>
+                </div>
+                <div class="summary-row">
+                    <span>وضعیت پرداخت:</span>
+                    <span class="status-badge {{ invoice.payment_status }}">
+                        {{ invoice.get_payment_status_display }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

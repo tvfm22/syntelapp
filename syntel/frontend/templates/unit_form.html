@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if unit %}ویرایش واحد{% else %}ایجاد واحد جدید{% endif %} - Kuker{% endblock %}
+
+{% block content %}
+<style>
+.error-message { color: var(--danger); font-size: 0.8rem; margin-top: 0.35rem; font-weight: 600; }
+</style>
+
+<div class="ui-form-wrap">
+    <div class="page-header">
+        <div class="ph-main">
+            <div class="ph-icon"><i class="fas fa-scale-balanced"></i></div>
+            <div>
+                <h1 class="ph-title">{% if unit %}ویرایش واحد{% else %}ایجاد واحد جدید{% endif %}</h1>
+                <p class="page-sub">{% if unit %}اطلاعات واحد را ویرایش کنید{% else %}اطلاعات واحد اندازه‌گیری جدید را وارد کنید{% endif %}</p>
+            </div>
+        </div>
+        <a href="{% url 'unit_list' cafe_code=cafe_code %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-right"></i> بازگشت
+        </a>
+    </div>
+
+    <form method="POST" class="ui-form-card unit-form">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="name" class="form-label">نام واحد <span style="color:var(--danger);">*</span></label>
+            <input type="text" id="name" name="name" class="form-control"
+                   value="{% if unit %}{{ unit.name }}{% endif %}" required>
+            <div style="font-size:0.78rem;color:var(--gray-500);margin-top:0.35rem;">مثال: کیلوگرم، لیتر، عدد، بسته</div>
+        </div>
+
+        <div class="form-group">
+            <label for="symbol" class="form-label">نماد واحد</label>
+            <input type="text" id="symbol" name="symbol" class="form-control"
+                   value="{% if unit %}{{ unit.symbol }}{% endif %}" placeholder="اختیاری">
+            <div style="font-size:0.78rem;color:var(--gray-500);margin-top:0.35rem;">مثال: kg، L، عدد، بسته (برای نمایش در جداول)</div>
+        </div>
+
+        <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--gray-100);">
+            <a href="{% url 'unit_list' cafe_code=cafe_code %}" class="btn btn-secondary">انصراف</a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-check"></i> {% if unit %}ذخیره تغییرات{% else %}ایجاد واحد{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('.unit-form');
+    form.addEventListener('submit', function(e) {
+        const name = document.getElementById('name').value.trim();
+        let isValid = true;
+        document.querySelectorAll('.error-message').forEach(el => el.remove());
+        if (!name) {
+            showError('name', 'نام واحد الزامی است');
+            isValid = false;
+        }
+        if (!isValid) e.preventDefault();
+    });
+    function showError(fieldId, message) {
+        const field = document.getElementById(fieldId);
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = message;
+        field.parentNode.appendChild(errorDiv);
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,333 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}داشبورد مدیر مالی{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ─── Page-specific styles (shared components come from dashboard_layout) ─── */
+
+    .stat-sublabel { font-size: 0.75rem; color: #9ca3af; margin-top: 0.25rem; }
+
+    /* Dashboard Grid */
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .chart-container { position: relative; height: 350px; }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center; padding: 3rem 2rem; color: #9ca3af;
+    }
+    .empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+    .empty-state p { font-size: 1.1rem; margin-bottom: 0.5rem; }
+    .empty-state small { font-size: 0.875rem; }
+
+    /* Loading */
+    .loading { text-align: center; padding: 3rem 2rem; color: #9ca3af; }
+    .loading i { font-size: 2rem; margin-bottom: 1rem; }
+
+    /* List Items */
+    .list-container { max-height: 400px; overflow-y: auto; }
+    .list-item {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 1rem; border-bottom: 1px solid var(--gray-200);
+        transition: all 0.2s;
+    }
+    .list-item:hover { background: var(--gray-50); }
+    .list-item:last-child { border-bottom: none; }
+    .list-item-content { flex: 1; }
+    .list-item-title { font-weight: 600; color: var(--dark); margin-bottom: 0.25rem; }
+    .list-item-subtitle { font-size: 0.875rem; color: var(--gray-500); }
+
+    @media (max-width: 768px) {
+        .main-content { padding: 1rem; }
+        .dashboard-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+        .chart-container { height: 250px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="fas fa-chart-bar"></i>
+        داشبورد مدیر مالی
+    </h1>
+    <div class="header-actions">
+        <div class="current-date">
+            <i class="fas fa-calendar-alt"></i>
+            <span id="persianDate"></span>
+        </div>
+        <a href="{% url 'logout' %}" class="logout-btn">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>خروج</span>
+        </a>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon-circle primary"><i class="fas fa-file-invoice"></i></div>
+        <div class="stat-value primary" id="total-invoices">-</div>
+        <div class="stat-label">کل فاکتورها</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon-circle success"><i class="fas fa-money-bill-wave"></i></div>
+        <div class="stat-value success" id="total-payments">-</div>
+        <div class="stat-label">کل پرداخت‌ها</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon-circle warning"><i class="fas fa-clock"></i></div>
+        <div class="stat-value warning" id="pending-invoices">-</div>
+        <div class="stat-label">فاکتورهای در انتظار</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon-circle danger"><i class="fas fa-exclamation-triangle"></i></div>
+        <div class="stat-value danger" id="unpaid-invoices">-</div>
+        <div class="stat-label">فاکتورهای پرداخت نشده</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon-circle primary"><i class="fas fa-truck"></i></div>
+        <div class="stat-value primary" id="total-suppliers">-</div>
+        <div class="stat-label">کل تامین‌کنندگان</div>
+    </div>
+</div>
+
+<!-- Dashboard Grid -->
+<div class="dashboard-grid">
+    <!-- Financial Overview Chart -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <i class="fas fa-chart-pie"></i>
+                نمای کلی مالی
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="financialChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Payments -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <i class="fas fa-history"></i>
+                پرداخت‌های اخیر
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="list-container" id="recentPaymentsList">
+                <div class="loading"><i class="fas fa-spinner fa-spin"></i></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pending Invoices -->
+<div class="card">
+    <div class="card-header">
+        <div class="card-title">
+            <i class="fas fa-file-invoice-dollar"></i>
+            فاکتورهای در انتظار پرداخت
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="list-container" id="pendingInvoicesList">
+            <div class="loading"><i class="fas fa-spinner fa-spin"></i></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
+<script>
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    const csrftoken = getCookie('csrftoken');
+    let financialChartInstance = null;
+
+    function toFarsiNumber(num) {
+        const farsiDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+        return num.toString().replace(/\d/g, x => farsiDigits[x]);
+    }
+
+    function formatNumber(num) {
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    function getPersianDate() {
+        const date = new Date();
+        return new Intl.DateTimeFormat('fa-IR', {
+            year: 'numeric', month: 'long', day: 'numeric'
+        }).format(date);
+    }
+
+    function loadFinanceStats() {
+        fetch(`/{{ cafe_code }}/api/finance/stats/`, {
+            headers: { 'X-CSRFToken': csrftoken }
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('total-invoices').textContent = toFarsiNumber(data.total_invoices);
+            document.getElementById('total-payments').textContent = toFarsiNumber(data.total_payments);
+            document.getElementById('pending-invoices').textContent = toFarsiNumber(data.pending_invoices);
+            document.getElementById('unpaid-invoices').textContent = toFarsiNumber(data.unpaid_invoices);
+            document.getElementById('total-suppliers').textContent = toFarsiNumber(data.total_suppliers);
+            renderFinancialChart(data);
+        })
+        .catch(error => console.error('Error loading finance stats:', error));
+    }
+
+    function renderFinancialChart(data) {
+        const ctx = document.getElementById('financialChart');
+        if (financialChartInstance) { financialChartInstance.destroy(); }
+
+        const chartData = {
+            labels: ['فاکتورها', 'پرداخت‌ها', 'در انتظار', 'پرداخت نشده'],
+            datasets: [{
+                data: [data.total_invoices, data.total_payments, data.pending_invoices, data.unpaid_invoices],
+                backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444'],
+                borderWidth: 2, borderColor: '#fff'
+            }]
+        };
+
+        financialChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: chartData,
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right', rtl: true,
+                        labels: {
+                            font: { family: 'Vazir', size: 12 },
+                            padding: 15, usePointStyle: true,
+                            generateLabels: function(chart) {
+                                const data = chart.data;
+                                if (data.labels.length && data.datasets.length) {
+                                    return data.labels.map((label, i) => {
+                                        const value = data.datasets[0].data[i];
+                                        const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((value / total) * 100).toFixed(1);
+                                        return {
+                                            text: `${label}: ${toFarsiNumber(formatNumber(Math.round(value)))} (${toFarsiNumber(percentage)}%)`,
+                                            fillStyle: data.datasets[0].backgroundColor[i],
+                                            hidden: false, index: i
+                                        };
+                                    });
+                                }
+                                return [];
+                            }
+                        }
+                    },
+                    tooltip: {
+                        rtl: true, textDirection: 'rtl',
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed;
+                                return `${label}: ${toFarsiNumber(formatNumber(Math.round(value)))}`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function loadRecentPayments() {
+        const container = document.getElementById('recentPaymentsList');
+        container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
+
+        fetch(`/{{ cafe_code }}/api/finance/recent-payments/`, {
+            headers: { 'X-CSRFToken': csrftoken }
+        })
+        .then(response => response.json())
+        .then(data => renderRecentPayments(data.payments))
+        .catch(error => {
+            console.error('Error loading recent payments:', error);
+            container.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>خطا در بارگذاری داده‌ها</p></div>';
+        });
+    }
+
+    function renderRecentPayments(payments) {
+        const container = document.getElementById('recentPaymentsList');
+        if (!payments || payments.length === 0) {
+            container.innerHTML = '<div class="empty-state"><i class="fas fa-history"></i><p>پرداختی یافت نشد</p><small>در حال حاضر پرداختی ثبت نشده است</small></div>';
+            return;
+        }
+        container.innerHTML = payments.map((payment, index) => `
+            <div class="list-item">
+                <div class="list-item-content">
+                    <div class="list-item-title">${index + 1}. فاکتور ${payment.invoice_number}</div>
+                    <div class="list-item-subtitle">${payment.payment_type} - ${payment.payment_date}</div>
+                </div>
+                <div><div class="badge badge-success"><i class="fas fa-money-bill-wave"></i> ${toFarsiNumber(formatNumber(Math.round(payment.amount)))} ریال</div></div>
+            </div>
+        `).join('');
+    }
+
+    function loadPendingInvoices() {
+        const container = document.getElementById('pendingInvoicesList');
+        container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
+
+        fetch(`/{{ cafe_code }}/api/finance/pending-invoices/`, {
+            headers: { 'X-CSRFToken': csrftoken }
+        })
+        .then(response => response.json())
+        .then(data => renderPendingInvoices(data.invoices))
+        .catch(error => {
+            console.error('Error loading pending invoices:', error);
+            container.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>خطا در بارگذاری داده‌ها</p></div>';
+        });
+    }
+
+    function renderPendingInvoices(invoices) {
+        const container = document.getElementById('pendingInvoicesList');
+        if (!invoices || invoices.length === 0) {
+            container.innerHTML = '<div class="empty-state"><i class="fas fa-file-invoice-dollar"></i><p>فاکتور در انتظار یافت نشد</p><small>تمام فاکتورها پرداخت شده‌اند</small></div>';
+            return;
+        }
+        container.innerHTML = invoices.map((invoice, index) => `
+            <div class="list-item">
+                <div class="list-item-content">
+                    <div class="list-item-title">${index + 1}. ${invoice.invoice_number}</div>
+                    <div class="list-item-subtitle">${invoice.supplier_name} - ${invoice.invoice_date}</div>
+                </div>
+                <div><div class="badge badge-danger"><i class="fas fa-exclamation-triangle"></i> ${toFarsiNumber(formatNumber(Math.round(invoice.total_amount)))} ریال</div></div>
+            </div>
+        `).join('');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('persianDate').textContent = getPersianDate();
+        loadFinanceStats();
+        loadRecentPayments();
+        loadPendingInvoices();
+    });
+</script>
+{% endblock %}

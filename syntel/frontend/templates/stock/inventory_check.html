@@ -1,0 +1,512 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}انبارگردانی - {{ warehouse.name }} - Kuker{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ic-wrap { max-width: 1400px; margin: 0 auto; }
+    .ic-wrap .page-header {
+        height: auto; min-height: 64px; padding: var(--space-3) var(--space-5);
+        margin-bottom: var(--space-4); flex-wrap: wrap; gap: var(--space-3);
+        border-radius: var(--radius-xl);
+    }
+
+    /* Summary Cards */
+    .summary-bar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+    }
+    .sum-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-light);
+        border-right: 4px solid var(--accent-indigo);
+        border-radius: var(--radius-xl);
+        padding: 1rem 1.25rem;
+        box-shadow: var(--shadow-xs);
+    }
+    .sum-card.green  { border-right-color: var(--accent-green); }
+    .sum-card.red    { border-right-color: #EF4444; }
+    .sum-card.orange { border-right-color: var(--accent-orange); }
+    .sum-value { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+    .sum-card.green .sum-value  { color: #059669; }
+    .sum-card.red .sum-value    { color: #DC2626; }
+    .sum-card.orange .sum-value { color: #EA580C; }
+    .sum-label { font-size: 0.76rem; color: var(--text-secondary); margin-top: 0.2rem; font-weight: 600; }
+
+    /* Submit bar */
+    .submit-bar {
+        background: var(--bg-card);
+        border: 1.5px solid #A7F3D0;
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-sm);
+        padding: 0.9rem 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.25rem;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+    .submit-bar-info { font-size: 0.85rem; color: var(--text-secondary); }
+    .submit-bar-info strong { color: #059669; font-size: 1.1rem; }
+
+    /* Table */
+    .ic-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+    .ic-card-header {
+        padding: 0.9rem 1.25rem;
+        border-bottom: 1px solid var(--border-light);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--bg-subtle);
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    .ic-card-title { font-weight: 800; font-size: 0.92rem; display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary); }
+    .ic-card-title i { color: var(--accent-indigo); }
+
+    .ic-table { width: 100%; border-collapse: collapse; }
+    .ic-table th {
+        padding: 0.65rem 0.85rem; text-align: right; font-size: 0.74rem; font-weight: 700;
+        color: var(--text-secondary); background: var(--bg-subtle); border-bottom: 1px solid var(--border-default); white-space: nowrap;
+    }
+    .ic-table td {
+        padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--border-light); vertical-align: middle; font-size: 0.84rem;
+    }
+    .ic-table tr:last-child td { border-bottom: none; }
+    .ic-table tr:hover td { background: #F8FAFC; }
+    .ic-table tr.changed td { background: #ECFDF5; }
+
+    .th-group        { background: #EFF6FF !important; color: #1D4ED8 !important; }
+    .th-group-green  { background: #ECFDF5 !important; color: #047857 !important; }
+    .th-group-red    { background: #FEF2F2 !important; color: #B91C1C !important; }
+
+    .badge-purple { background: rgba(139,92,246,0.1); color: #6D28D9; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; }
+    .badge-gray   { background: #F1F5F9; color: #64748B; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; }
+    .badge-green  { background: #ECFDF5; color: #059669; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; }
+
+    .num-cell    { text-align: center; font-weight: 700; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+    .num-in      { color: #059669; }
+    .num-out     { color: #DC2626; }
+    .num-initial { color: var(--accent-indigo); }
+    .num-system  { color: #6D28D9; }
+
+    .qty-input {
+        padding: 0.4rem 0.65rem; border: 1.5px solid var(--border-default); border-radius: 8px;
+        font-family: 'Vazir', sans-serif; font-size: 0.86rem; font-weight: 700; width: 105px;
+        text-align: center; background: #fff; font-variant-numeric: tabular-nums;
+    }
+    .qty-input:focus { outline: none; border-color: var(--accent-indigo); box-shadow: 0 0 0 3px rgba(139,92,246,0.12); }
+    .qty-input.filled { border-color: #059669; background: #ECFDF5; }
+    .qty-input.diff-positive { border-color: #059669; }
+    .qty-input.diff-negative { border-color: #DC2626; }
+
+    .diff-badge { font-size: 0.74rem; font-weight: 700; padding: 0.15rem 0.55rem; border-radius: 999px; white-space: nowrap; }
+    .diff-pos  { background: #D1FAE5; color: #065F46; }
+    .diff-neg  { background: #FEE2E2; color: #991B1B; }
+    .diff-zero { background: #F1F5F9; color: #64748B; }
+
+    .history-btn {
+        background: #EEF2FF; border: 1px solid #E0E7FF; cursor: pointer; color: #4F46E5;
+        font-size: 0.76rem; padding: 0.28rem 0.65rem; border-radius: 8px; font-family: 'Vazir', sans-serif;
+        display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 700;
+    }
+    .history-btn:hover { background: #E0E7FF; }
+
+    /* Modal */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.55); z-index: 1000; align-items: center; justify-content: center; padding: 1rem; }
+    .modal-overlay.open { display: flex; }
+    .modal-box { background: #fff; border-radius: var(--radius-xl); width: 100%; max-width: 800px; box-shadow: var(--shadow-xl); max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+    .modal-header { padding: 1rem 1.35rem; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between; }
+    .modal-header h3 { font-size: 1rem; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+    .modal-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted); }
+    .modal-body { padding: 1.25rem 1.35rem; overflow-y: auto; flex: 1; }
+    .history-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .history-table th { padding: 0.6rem 0.75rem; text-align: right; font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); background: var(--bg-subtle); border-bottom: 1px solid var(--border-default); }
+    .history-table td { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border-light); vertical-align: middle; }
+    .in-tag  { color: #059669; font-weight: 700; }
+    .out-tag { color: #DC2626; font-weight: 700; }
+    .adj-tag { color: #BE185D; font-weight: 700; }
+    .modal-meta { display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .meta-chip { background: var(--bg-subtle); padding: 0.35rem 0.8rem; border-radius: 999px; font-size: 0.78rem; font-weight: 600; border: 1px solid var(--border-light); }
+    .v-mini-link { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.6rem; border-radius: 999px; background: var(--bg-subtle); color: var(--text-secondary); border: 1px solid var(--border-light); font-size: 0.72rem; font-weight: 700; text-decoration: none; }
+    .spinner { display: none; text-align: center; padding: 2rem; color: var(--text-muted); }
+    .spinner.show { display: block; }
+    .toast-container { position: fixed; bottom: 1.5rem; left: 1.5rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem; }
+    .toast { background: #fff; border-radius: 10px; box-shadow: var(--shadow-xl); padding: 0.8rem 1.15rem; display: flex; align-items: center; gap: 0.65rem; font-size: 0.85rem; font-weight: 600; border-inline-start: 4px solid #10B981; }
+    .toast.error { border-inline-start-color: #EF4444; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="ic-wrap">
+    <div class="page-header">
+        <div class="ph-main">
+            <div class="ph-icon orange"><i class="fas fa-clipboard-check"></i></div>
+            <div class="ph-title">
+                <h1>انبارگردانی — {{ warehouse.name }}</h1>
+                <div class="page-sub">کد انبار: <strong>{{ warehouse.code }}</strong> • موجودی فیزیکی هر کالا را وارد کرده و در پایان ثبت انبارگردانی را بزنید</div>
+            </div>
+        </div>
+        <div class="header-actions">
+            <a href="{% url 'warehouse_management' cafe_code=cafe_code %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-right"></i> مدیریت انبارها
+            </a>
+        </div>
+    </div>
+
+    {% if items_data %}
+    <div class="summary-bar">
+        <div class="sum-card">
+            <div class="sum-value">{{ items_data|length }}</div>
+            <div class="sum-label">تعداد کل اقلام</div>
+        </div>
+        <div class="sum-card green">
+            <div class="sum-value" id="statFilled">0</div>
+            <div class="sum-label">موجودی وارد‌شده</div>
+        </div>
+        <div class="sum-card red" id="lowStockCard">
+            <div class="sum-value">{% for d in items_data %}{% if d.system_qty <= d.stock_item.min_quantity and d.stock_item.min_quantity > 0 %}{% if forloop.first %}1{% else %}{{ forloop.counter }}{% endif %}{% endif %}{% endfor %}</div>
+            <div class="sum-label">زیر نقطه سفارش</div>
+        </div>
+        <div class="sum-card orange">
+            <div class="sum-value" id="statChanged">0</div>
+            <div class="sum-label">دارای مغایرت موجودی</div>
+        </div>
+    </div>
+
+    <div class="submit-bar">
+        <div class="submit-bar-info">
+            <strong id="filledCount">0</strong> کالا از {{ items_data|length }} کالا شمارش شده است —
+            پس از تکمیل شمارش فیزیکی دکمه ثبت را بزنید
+        </div>
+        <button class="btn btn-success" onclick="submitInventory()" id="submitBtn">
+            <i class="fas fa-save"></i> ثبت نهایی انبارگردانی
+        </button>
+    </div>
+
+    <div class="ic-card">
+        <div class="ic-card-header">
+            <div class="ic-card-title">
+                <i class="fas fa-table"></i> لیست کالاهای انبار
+            </div>
+            <div style="display:flex;gap:0.5rem">
+                <button class="btn btn-secondary" style="height:34px;font-size:0.78rem" onclick="fillAllWithSystem()">
+                    <i class="fas fa-copy"></i> کپی موجودی سیستم
+                </button>
+                <button class="btn btn-secondary" style="height:34px;font-size:0.78rem" onclick="clearAllInputs()">
+                    <i class="fas fa-eraser"></i> پاک کردن همه
+                </button>
+            </div>
+        </div>
+        <div style="overflow-x:auto">
+            <table class="ic-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2">#</th>
+                        <th rowspan="2">نام کالا</th>
+                        <th rowspan="2">دسته‌بندی</th>
+                        <th rowspan="2">واحد</th>
+                        <th colspan="2" class="th-group-green" style="text-align:center;">حواله ورود</th>
+                        <th colspan="2" class="th-group-red" style="text-align:center;">حواله خروج</th>
+                        <th class="th-group" style="text-align:center;">موجودی اولیه</th>
+                        <th class="th-group" style="text-align:center;">موجودی سیستم</th>
+                        <th rowspan="2" style="text-align:center;min-width:140px">موجودی فیزیکی <span style="color:#EF4444">*</span></th>
+                        <th rowspan="2" style="text-align:center">مغایرت</th>
+                        <th rowspan="2" style="text-align:center">سوابق</th>
+                    </tr>
+                    <tr>
+                        <th class="th-group-green" style="text-align:center;">تعداد</th>
+                        <th class="th-group-green" style="text-align:center;">جمع مقدار</th>
+                        <th class="th-group-red" style="text-align:center;">تعداد</th>
+                        <th class="th-group-red" style="text-align:center;">جمع مقدار</th>
+                        <th class="th-group" style="text-align:center;"></th>
+                        <th class="th-group" style="text-align:center;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in items_data %}
+                    <tr id="tr-{{ d.stock_item.id }}" data-system="{{ d.system_qty }}">
+                        <td style="color:var(--text-muted);font-size:0.78rem">{{ forloop.counter }}</td>
+                        <td><span style="font-weight:700;color:var(--text-primary)">{{ d.stock_item.product.name }}</span></td>
+                        <td>
+                            {% if d.stock_item.product.category %}
+                            <span class="badge-purple">{{ d.stock_item.product.category.name }}</span>
+                            {% else %}<span class="badge-gray">—</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if d.stock_item.unit %}
+                            <span class="badge-green">{{ d.stock_item.unit.name }}</span>
+                            {% else %}<span class="badge-gray">—</span>{% endif %}
+                        </td>
+                        <td class="num-cell num-in">{{ d.in_count }}</td>
+                        <td class="num-cell num-in">{{ d.in_total }}</td>
+                        <td class="num-cell num-out">{{ d.out_count }}</td>
+                        <td class="num-cell num-out">{{ d.out_total }}</td>
+                        <td class="num-cell num-initial">{{ d.initial_qty }}</td>
+                        <td class="num-cell num-system">{{ d.system_qty }}</td>
+                        <td style="text-align:center">
+                            <input type="number"
+                                   class="qty-input"
+                                   id="input-{{ d.stock_item.id }}"
+                                   data-stock-item="{{ d.stock_item.id }}"
+                                   data-system="{{ d.system_qty }}"
+                                   min="0" step="0.01"
+                                   placeholder="—"
+                                   oninput="onInputChange(this)"
+                                   onchange="onInputChange(this)">
+                        </td>
+                        <td style="text-align:center" id="diff-{{ d.stock_item.id }}">
+                            <span class="diff-badge diff-zero">—</span>
+                        </td>
+                        <td style="text-align:center">
+                            <button class="history-btn"
+                                    onclick="openHistory({{ d.stock_item.id }}, '{{ d.stock_item.product.name|escapejs }}')"
+                                    title="مشاهده سوابق">
+                                <i class="fas fa-history"></i> سوابق
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="table-card">
+        <div class="empty-state">
+            <i class="fas fa-clipboard-check"></i>
+            <h3>هیچ کالایی در این انبار تعریف نشده</h3>
+            <p>ابتدا با ثبت یک حواله ورود، کالا را به این انبار وارد کنید</p>
+            <a href="{% url 'voucher_create' cafe_code=cafe_code voucher_type='receipt' %}" class="btn btn-primary" style="margin-top:12px;">
+                <i class="fas fa-plus"></i> ثبت حواله ورود
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="modal-overlay" id="historyModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 id="historyTitle"><i class="fas fa-history" style="color:var(--accent-indigo)"></i> سوابق کالا</h3>
+            <button class="modal-close" onclick="closeHistory()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-meta" id="historyMeta"></div>
+            <div class="spinner" id="historySpinner"><i class="fas fa-spinner fa-spin fa-2x"></i></div>
+            <div id="movTableWrap"></div>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+const CSRF_TOKEN = document.querySelector('[name=csrfmiddlewaretoken]').value;
+const WAREHOUSE_ID = {{ warehouse.id }};
+const CAFE_CODE = '{{ cafe_code }}';
+
+function onInputChange(input) {
+    const systemQty = parseFloat(input.dataset.system || 0);
+    const physicalQty = input.value !== '' ? parseFloat(input.value) : null;
+    const stockItemId = input.dataset.stockItem;
+    const diffEl = document.getElementById(`diff-${stockItemId}`);
+    const row = document.getElementById(`tr-${stockItemId}`);
+
+    if (physicalQty === null || input.value === '') {
+        input.classList.remove('filled','diff-positive','diff-negative');
+        diffEl.innerHTML = '<span class="diff-badge diff-zero">—</span>';
+        row.classList.remove('changed');
+    } else {
+        input.classList.add('filled');
+        const diff = physicalQty - systemQty;
+        if (diff > 0) {
+            diffEl.innerHTML = `<span class="diff-badge diff-pos">+${diff.toLocaleString('fa-IR')}</span>`;
+            input.classList.add('diff-positive');
+            input.classList.remove('diff-negative');
+        } else if (diff < 0) {
+            diffEl.innerHTML = `<span class="diff-badge diff-neg">${diff.toLocaleString('fa-IR')}</span>`;
+            input.classList.add('diff-negative');
+            input.classList.remove('diff-positive');
+        } else {
+            diffEl.innerHTML = '<span class="diff-badge diff-zero">۰</span>';
+            input.classList.remove('diff-positive','diff-negative');
+        }
+        if (diff !== 0) row.classList.add('changed');
+        else row.classList.remove('changed');
+    }
+    updateStats();
+}
+
+function updateStats() {
+    const inputs = document.querySelectorAll('.qty-input');
+    let filled = 0, changed = 0;
+    inputs.forEach(inp => {
+        if (inp.value !== '') {
+            filled++;
+            const diff = parseFloat(inp.value) - parseFloat(inp.dataset.system || 0);
+            if (diff !== 0) changed++;
+        }
+    });
+    document.getElementById('statFilled').textContent = filled;
+    document.getElementById('statChanged').textContent = changed;
+    const el = document.getElementById('filledCount');
+    if (el) el.textContent = filled;
+}
+
+function fillAllWithSystem() {
+    document.querySelectorAll('.qty-input').forEach(inp => {
+        inp.value = inp.dataset.system;
+        onInputChange(inp);
+    });
+}
+
+function clearAllInputs() {
+    document.querySelectorAll('.qty-input').forEach(inp => {
+        inp.value = '';
+        onInputChange(inp);
+    });
+}
+
+async function submitInventory() {
+    const inputs = document.querySelectorAll('.qty-input');
+    const items = [];
+    inputs.forEach(inp => {
+        if (inp.value !== '') {
+            items.push({
+                stock_item_id: inp.dataset.stockItem,
+                physical_qty: inp.value,
+            });
+        }
+    });
+
+    if (items.length === 0) {
+        showToast('هیچ موجودی وارد نشده است', true);
+        return;
+    }
+
+    if (!confirm(`آیا از ثبت انبارگردانی برای ${items.length} کالا اطمینان دارید؟ این عمل موجودی‌ها را به‌روزرسانی می‌کند.`)) return;
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> در حال ثبت...';
+
+    try {
+        const resp = await fetch(`/${CAFE_CODE}/warehouses/${WAREHOUSE_ID}/inventory-submit/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+            body: JSON.stringify({items}),
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast(`انبارگردانی ثبت شد: ${data.updated} کالا به‌روزرسانی شد`);
+            setTimeout(() => location.reload(), 1200);
+        } else {
+            showToast(data.error || 'خطا در ثبت', true);
+        }
+    } catch (e) {
+        showToast('خطای شبکه', true);
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-save"></i> ثبت نهایی انبارگردانی';
+}
+
+function openHistory(stockItemId, productName) {
+    document.getElementById('historyModal').classList.add('open');
+    document.getElementById('historyTitle').innerHTML = `<i class="fas fa-history" style="color:var(--accent-indigo)"></i> سوابق: ${productName}`;
+    document.getElementById('historyMeta').innerHTML = '';
+    document.getElementById('historySpinner').classList.add('show');
+    document.getElementById('movTableWrap').innerHTML = '';
+
+    fetch(`/${CAFE_CODE}/api/warehouses/${WAREHOUSE_ID}/products/${stockItemId}/history/`, {
+        headers: {'X-CSRFToken': CSRF_TOKEN},
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('historySpinner').classList.remove('show');
+        if (!data.success) { showToast('خطا در بارگذاری سوابق', true); return; }
+
+        document.getElementById('historyMeta').innerHTML = `
+            <span class="meta-chip"><i class="fas fa-box"></i> ${data.product_name}</span>
+            <span class="meta-chip"><i class="fas fa-balance-scale"></i> موجودی: ${data.current_qty} ${data.unit_name}</span>
+        `;
+
+        document.getElementById('movTableWrap').innerHTML = buildMovementsTable(data.movements);
+    })
+    .catch(() => {
+        document.getElementById('historySpinner').classList.remove('show');
+        showToast('خطای شبکه', true);
+    });
+}
+
+const TX_LABELS = {in: 'ورود', out: 'خروج', adjustment: 'تعدیل', initial: 'موجودی اولیه'};
+
+function buildMovementsTable(movements) {
+    if (!movements.length) {
+        return `<div style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-inbox" style="font-size:2rem;margin-bottom:.5rem"></i><br>سابقه‌ای ثبت نشده</div>`;
+    }
+    let rows = movements.map(it => {
+        const txClass = it.transaction_type === 'adjustment' ? 'adj-tag'
+            : (it.transaction_type === 'in' ? 'in-tag' : 'out-tag');
+        const txIcon = it.transaction_type === 'in' ? 'fa-arrow-down'
+            : (it.transaction_type === 'out' ? 'fa-arrow-up' : 'fa-scale-balanced');
+        let source = '—';
+        if (it.voucher) {
+            source = `<a href="/${CAFE_CODE}/vouchers/detail/${it.voucher.id}/" class="v-mini-link" target="_blank">${it.voucher.voucher_number}</a>`;
+        } else if (it.reference_type === 'warehouse_request') {
+            source = `<span class="v-mini-link" style="color:#b45309"><i class="fas fa-truck-ramp-box"></i> تامین درخواست انبار</span>`;
+        }
+        return `
+        <tr>
+            <td>${it.date}</td>
+            <td><span class="${txClass}"><i class="fas ${txIcon}"></i> ${it.type_display || TX_LABELS[it.transaction_type] || it.transaction_type}</span></td>
+            <td>${it.quantity} ${it.unit_name}</td>
+            <td>${it.prev_qty} ← ${it.new_qty}</td>
+            <td>${source}</td>
+            <td>${it.description || '—'}</td>
+            <td>${it.created_by || '—'}</td>
+        </tr>`;
+    }).join('');
+
+    return `
+    <table class="history-table">
+        <thead><tr>
+            <th>تاریخ</th>
+            <th>نوع حرکت</th>
+            <th>مقدار</th>
+            <th>قبل ← بعد</th>
+            <th>مبدأ</th>
+            <th>توضیحات</th>
+            <th>ثبت‌کننده</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function closeHistory() { document.getElementById('historyModal').classList.remove('open'); }
+document.getElementById('historyModal').addEventListener('click', function(e) {
+    if (e.target === this) closeHistory();
+});
+
+function showToast(msg, isError = false) {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = `toast${isError ? ' error' : ''}`;
+    t.innerHTML = `<i class="fas fa-${isError ? 'times-circle' : 'check-circle'}" style="color:${isError ? '#ef4444' : '#10b981'}"></i> ${msg}`;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 3500);
+}
+</script>
+{% endblock %}

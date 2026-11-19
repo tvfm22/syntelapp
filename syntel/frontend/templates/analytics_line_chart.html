@@ -1,0 +1,341 @@
+{% extends 'dashboard_layout.html' %}
+{% load static %}
+
+{% block title %}روند هزینه‌ها - نمودار خطی{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chart-card {
+        background: white; border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-xl); overflow: hidden; margin-bottom: 1.5rem;
+    }
+    .chart-header {
+        padding: 1.5rem 2rem; border-bottom: 1px solid var(--gray-200);
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .chart-title { font-size: 1.25rem; font-weight: 700; color: var(--dark); }
+    .chart-actions { display: flex; gap: 0.5rem; }
+    .chart-action-btn {
+        padding: 0.5rem 0.75rem; border: 1px solid var(--gray-200);
+        border-radius: var(--radius-md); background: white; color: var(--dark);
+        cursor: pointer; font-size: 0.875rem; transition: all 0.2s;
+    }
+    .chart-action-btn:hover { background: var(--gray-50); border-color: var(--primary); color: var(--primary); }
+    .chart-body { padding: 2rem; }
+    .chart-wrapper { position: relative; height: 450px; }
+    .comparison-chart-wrapper { position: relative; height: 400px; }
+
+    .loading-overlay {
+        position: absolute; inset: 0;
+        background: rgba(255,255,255,0.95);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 10; border-radius: var(--radius-md);
+    }
+    .spinner {
+        width: 3rem; height: 3rem;
+        border: 4px solid var(--gray-100);
+        border-top-color: var(--primary);
+        border-radius: 50%; animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .period-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.25rem; }
+
+    .stats-grid {
+        display: grid; grid-template-columns: repeat(4, 1fr);
+        gap: 1rem; margin-bottom: 1.5rem;
+    }
+    .stat-card {
+        background: white; border-radius: var(--radius-lg);
+        padding: 1.25rem; box-shadow: var(--shadow-sm);
+        display: flex; align-items: center; gap: 1rem;
+    }
+    .stat-icon {
+        width: 48px; height: 48px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.2rem; flex-shrink: 0;
+    }
+    .stat-icon.primary { background: rgba(99,102,241,0.1); color: var(--primary); }
+    .stat-icon.success { background: rgba(16,185,129,0.1); color: var(--success); }
+    .stat-icon.warning { background: rgba(245,158,11,0.1); color: var(--warning); }
+    .stat-icon.danger { background: rgba(239,68,68,0.1); color: var(--danger); }
+    .stat-value { font-size: 1.5rem; font-weight: 700; color: var(--dark); }
+    .stat-label { font-size: 0.8rem; color: var(--gray-500); margin-top: 0.15rem; }
+
+    @media (max-width: 768px) {
+        .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+        .chart-wrapper { height: 300px; }
+        .chart-body { padding: 1rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="fas fa-chart-line"></i>
+        روند هزینه‌ها
+    </h1>
+    <div class="header-actions">
+        <div class="current-date">
+            <i class="fas fa-calendar-alt"></i>
+            <span id="persianDate"></span>
+        </div>
+        <a href="{% url 'logout' %}" class="logout-btn">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>خروج</span>
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="filters-container">
+    <div class="filters-grid">
+        <div class="filter-group">
+            <label class="filter-label">بازه زمانی</label>
+            <div class="period-buttons">
+                <button class="period-btn" data-period="weekly">هفتگی</button>
+                <button class="period-btn active" data-period="monthly">ماهانه</button>
+                <button class="period-btn" data-period="quarterly">فصلی</button>
+                <button class="period-btn" data-period="yearly">سالانه</button>
+            </div>
+        </div>
+        <div class="filter-group">
+            <label class="filter-label">دقت نمایش</label>
+            <select class="filter-select" id="granularity">
+                <option value="daily">روزانه</option>
+                <option value="weekly">هفتگی</option>
+                <option value="monthly">ماهانه</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label class="filter-label">بخش</label>
+            <select class="filter-select" id="departmentFilter">
+                <option value="">همه بخش‌ها</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label class="filter-label">دسته‌بندی</label>
+            <select class="filter-select" id="categoryFilter">
+                <option value="">همه دسته‌ها</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon primary"><i class="fas fa-coins"></i></div>
+        <div><div class="stat-value" id="totalExpense">۰</div><div class="stat-label">مجموع هزینه‌ها</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon success"><i class="fas fa-calculator"></i></div>
+        <div><div class="stat-value" id="avgExpense">۰</div><div class="stat-label">میانگین روزانه</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon warning"><i class="fas fa-arrow-up"></i></div>
+        <div><div class="stat-value" id="maxExpense">۰</div><div class="stat-label">بیشترین هزینه</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon danger"><i class="fas fa-arrow-down"></i></div>
+        <div><div class="stat-value" id="minExpense">۰</div><div class="stat-label">کمترین هزینه</div></div>
+    </div>
+</div>
+
+<!-- Main Chart -->
+<div class="chart-card">
+    <div class="chart-header">
+        <h3 class="chart-title" id="mainChartTitle">روند هزینه‌ها</h3>
+        <div class="chart-actions">
+            <button class="chart-action-btn" onclick="refreshChart()"><i class="fas fa-sync-alt"></i></button>
+        </div>
+    </div>
+    <div class="chart-body">
+        <div class="chart-wrapper">
+            <canvas id="mainLineChart"></canvas>
+            <div class="loading-overlay" id="mainLoading"><div class="spinner"></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- Comparison Chart -->
+<div class="chart-card">
+    <div class="chart-header">
+        <h3 class="chart-title">مقایسه بخش‌ها</h3>
+    </div>
+    <div class="chart-body">
+        <div class="comparison-chart-wrapper">
+            <canvas id="comparisonChart"></canvas>
+            <div class="loading-overlay" id="comparisonLoading"><div class="spinner"></div></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
+<script>
+    let mainChart = null, comparisonChart = null;
+    let currentPeriod = 'monthly', currentGranularity = 'daily';
+    let currentDepartment = '', currentCategory = '';
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('persianDate').textContent = getPersianDate();
+        loadDepartments();
+        loadCategories();
+        loadChartData();
+        setupEventListeners();
+    });
+
+    function getPersianDate() {
+        return new Intl.DateTimeFormat('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date());
+    }
+
+    function toFarsiNumber(num) {
+        const d = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+        return num.toString().replace(/\d/g, x => d[x]);
+    }
+
+    function formatNumber(num) {
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    function setupEventListeners() {
+        document.querySelectorAll('.period-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.period-btn').forEach(function(b) { b.classList.remove('active'); });
+                this.classList.add('active');
+                currentPeriod = this.dataset.period;
+                loadChartData();
+            });
+        });
+        document.getElementById('granularity').addEventListener('change', function () {
+            currentGranularity = this.value;
+            loadChartData();
+        });
+        document.getElementById('departmentFilter').addEventListener('change', function () {
+            currentDepartment = this.value;
+            loadChartData();
+            loadComparisonData();
+        });
+        document.getElementById('categoryFilter').addEventListener('change', function () {
+            currentCategory = this.value;
+            loadChartData();
+        });
+    }
+
+    function loadDepartments() {
+        fetch('/{{ cafe_code }}/api/analytics/departments/expenses/')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var sel = document.getElementById('departmentFilter');
+                (data.departments || []).forEach(function(d) {
+                    var opt = document.createElement('option');
+                    opt.value = d.id; opt.textContent = d.name;
+                    sel.appendChild(opt);
+                });
+            }).catch(function(e) { console.error('Error loading departments:', e); });
+    }
+
+    function loadCategories() {
+        var sel = document.getElementById('categoryFilter');
+        var names = ['مواد غذایی', 'نوشیدنی', 'تجهیزات', 'نظافت', 'اداری'];
+        names.forEach(function(n) {
+            var opt = document.createElement('option');
+            opt.value = n; opt.textContent = n;
+            sel.appendChild(opt);
+        });
+    }
+
+    function loadChartData() {
+        showLoading('mainLoading');
+        var params = new URLSearchParams({ period: currentPeriod, granularity: currentGranularity });
+        if (currentDepartment) params.append('department_id', currentDepartment);
+        if (currentCategory) params.append('category', currentCategory);
+
+        fetch('/{{ cafe_code }}/api/analytics/trend/?' + params.toString())
+            .then(function(r) { return r.json(); })
+            .then(function(data) { renderMainChart(data); hideLoading('mainLoading'); })
+            .catch(function(e) { console.error('Error loading trend:', e); hideLoading('mainLoading'); });
+    }
+
+    function renderMainChart(data) {
+        var ctx = document.getElementById('mainLineChart');
+        if (mainChart) mainChart.destroy();
+        if (!data.labels || data.labels.length === 0) {
+            ctx.parentElement.innerHTML = '<div class="empty-state"><i class="fas fa-chart-line"></i><p>داده‌ای برای نمایش وجود ندارد</p></div>';
+            return;
+        }
+        var datasets = [
+            { label: 'مبلغ کل', data: data.values || [], borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', fill: true, tension: 0.4 },
+            { label: 'تعداد', data: data.counts || [], borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.4, yAxisID: 'y1' }
+        ];
+        mainChart = new Chart(ctx, {
+            type: 'line', data: { labels: data.labels, datasets: datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'top', rtl: true, labels: { font: { family: 'Vazir', size: 12 }, usePointStyle: true } },
+                    tooltip: { rtl: true, textDirection: 'rtl' }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { family: 'Vazir' } } },
+                    y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { family: 'Vazir' } } },
+                    y1: { position: 'right', grid: { display: false }, ticks: { font: { family: 'Vazir' } } }
+                }
+            }
+        });
+        document.getElementById('totalExpense').textContent = toFarsiNumber(formatNumber((data.summary && data.summary.total) || 0));
+        document.getElementById('avgExpense').textContent = toFarsiNumber(formatNumber((data.summary && data.summary.avg) || 0));
+        document.getElementById('maxExpense').textContent = toFarsiNumber(formatNumber((data.summary && data.summary.max) || 0));
+        document.getElementById('minExpense').textContent = toFarsiNumber(formatNumber((data.summary && data.summary.min) || 0));
+    }
+
+    function loadComparisonData() {
+        showLoading('comparisonLoading');
+        var params = new URLSearchParams({ period: currentPeriod, granularity: currentGranularity });
+        if (currentDepartment) params.append('department_id', currentDepartment);
+        fetch('/{{ cafe_code }}/api/analytics/comparison/?' + params.toString())
+            .then(function(r) { return r.json(); })
+            .then(function(data) { renderComparisonChart(data); hideLoading('comparisonLoading'); })
+            .catch(function(e) { console.error('Error loading comparison:', e); hideLoading('comparisonLoading'); });
+    }
+
+    function renderComparisonChart(data) {
+        var ctx = document.getElementById('comparisonChart');
+        if (comparisonChart) comparisonChart.destroy();
+        if (!data.labels || data.labels.length === 0) {
+            ctx.parentElement.innerHTML = '<div class="empty-state"><i class="fas fa-chart-bar"></i><p>داده‌ای برای مقایسه وجود ندارد</p></div>';
+            return;
+        }
+        comparisonChart = new Chart(ctx, {
+            type: 'bar', data: { labels: data.labels, datasets: data.datasets || [] },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top', rtl: true, labels: { font: { family: 'Vazir', size: 12 }, usePointStyle: true } },
+                    tooltip: { rtl: true, textDirection: 'rtl' }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { family: 'Vazir' } } },
+                    y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { family: 'Vazir' } } }
+                }
+            }
+        });
+    }
+
+    function refreshChart() { loadChartData(); loadComparisonData(); }
+
+    function showLoading(id) {
+        var el = document.getElementById(id);
+        if (el) el.style.display = 'flex';
+    }
+    function hideLoading(id) {
+        var el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    }
+</script>
+{% endblock %}

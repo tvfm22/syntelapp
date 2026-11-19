@@ -1,0 +1,469 @@
+﻿{% extends 'base.html' %}
+{% load static custom_filters %}
+
+{% block title %}مدیریت محصولات{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ===== مدیریت محصولات — هماهنگ با دیزاین سیستم داشبورد ===== */
+    .products-page {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    /* ---------- تولبار: جستجو + فیلترها ---------- */
+    .p-toolbar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: var(--space-3);
+    }
+
+    .search-box { position: relative; flex: 1; min-width: 220px; max-width: 340px; }
+    .search-box > i {
+        position: absolute; right: 0.9rem; top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted); font-size: 0.85rem; pointer-events: none;
+    }
+
+    .search-input {
+        width: 100%; height: 40px;
+        padding: 0 2.4rem 0 0.9rem;
+        border: 1px solid var(--border-default);
+        border-radius: var(--radius-lg);
+        background: var(--bg-card);
+        font-family: 'Vazir', sans-serif; font-size: 0.85rem; color: var(--text-primary);
+        transition: all var(--transition-fast);
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: var(--accent-indigo);
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+    }
+
+    .p-select {
+        height: 40px; padding: 0 0.75rem;
+        border: 1px solid var(--border-default);
+        border-radius: var(--radius-lg);
+        background: var(--bg-card); color: var(--text-primary);
+        font-family: 'Vazir', sans-serif; font-size: 0.85rem;
+        cursor: pointer; transition: all var(--transition-fast);
+    }
+
+    .p-select:focus {
+        outline: none;
+        border-color: var(--accent-indigo);
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+    }
+
+    /* لینک پاک‌کردن فیلترها */
+    .p-reset {
+        display: inline-flex; align-items: center; gap: 0.35rem;
+        height: 40px; padding: 0 0.85rem;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border-default);
+        background: var(--bg-card);
+        color: var(--text-secondary);
+        font-size: 0.8rem; font-weight: 500; text-decoration: none;
+        transition: all var(--transition-fast);
+    }
+    .p-reset:hover { color: #DC2626; border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.06); }
+
+    /* دکمه outline (اکشن ثانویه در هدر) */
+    .p-btn-outline {
+        background: var(--bg-card); color: var(--text-primary);
+        border: 1px solid var(--border-default);
+    }
+    .p-btn-outline:hover { border-color: var(--accent-indigo); color: var(--accent-indigo); }
+
+    /* دکمه جستجو با ارتفاع هم‌اندازه فیلترها */
+    .p-btn-primary {
+        height: 40px; padding: 0 1.1rem; border: none;
+        border-radius: var(--radius-lg);
+        background: var(--accent-indigo); color: #fff;
+        font-family: 'Vazir', sans-serif; font-size: 0.85rem; font-weight: 600;
+        cursor: pointer; transition: all var(--transition-base);
+        display: inline-flex; align-items: center; gap: 0.45rem;
+    }
+    .p-btn-primary:hover { background: var(--primary-dark); }
+
+    /* ---------- جدول ---------- */
+    .table-scroll { overflow-x: auto; }
+
+    .p-table th { white-space: nowrap; }
+    .p-table td { vertical-align: middle; }
+
+    .table-meta {
+        font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);
+        background: var(--bg-subtle); border: 1px solid var(--border-light);
+        padding: 0.25rem 0.75rem; border-radius: 999px;
+    }
+
+    /* سلول محصول */
+    .p-name {
+        font-size: 0.92rem; font-weight: 600; color: var(--text-primary); line-height: 1.5;
+    }
+    .p-sub { font-size: 0.74rem; color: var(--text-muted); margin-top: 0.15rem; }
+
+    .p-incomplete {
+        display: inline-flex; align-items: center; gap: 0.3rem;
+        background: rgba(249, 115, 22, 0.09); color: #EA580C;
+        padding: 0.15rem 0.55rem; border-radius: var(--radius-xs);
+        font-size: 0.72rem; font-weight: 600; margin-top: 0.3rem;
+    }
+
+    /* چیپ‌های متنی */
+    .p-chip {
+        display: inline-block;
+        background: var(--bg-subtle); color: var(--text-secondary);
+        border: 1px solid var(--border-light);
+        padding: 0.2rem 0.65rem; border-radius: var(--radius-xs);
+        font-size: 0.78rem; font-weight: 500;
+    }
+    .p-chip-accent {
+        display: inline-block;
+        background: rgba(139, 92, 246, 0.08); color: var(--primary-dark);
+        border: 1px solid rgba(139, 92, 246, 0.18);
+        padding: 0.2rem 0.65rem; border-radius: var(--radius-xs);
+        font-size: 0.78rem; font-weight: 600;
+    }
+    .p-chip-muted {
+        display: inline-block;
+        background: rgba(148, 163, 184, 0.12); color: var(--text-muted);
+        border: 1px dashed var(--border-strong);
+        padding: 0.2rem 0.65rem; border-radius: var(--radius-xs);
+        font-size: 0.78rem; font-weight: 500;
+    }
+    .muted-dash { color: var(--text-muted); font-size: 0.85rem; }
+
+    .p-num { font-variant-numeric: tabular-nums; color: var(--text-primary); font-weight: 600; }
+
+    /* ---------- قیمت واحد کوچک‌ترین واحد ---------- */
+    .p-price {
+        font-variant-numeric: tabular-nums;
+        font-weight: 700; font-size: 0.92rem;
+        color: var(--text-primary);
+        white-space: nowrap;
+    }
+
+    /* ---------- مصرف در رسپی ---------- */
+    .p-recipe {
+        display: inline-flex; align-items: center; gap: 0.3rem;
+        padding: 0.18rem 0.55rem; border-radius: var(--radius-xs);
+        font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+    }
+    .p-recipe.is-used { background: rgba(16, 185, 129, 0.1); color: #059669; }
+    .p-recipe.is-idle { background: rgba(148, 163, 184, 0.14); color: #64748B; }
+    .p-recipe.is-blocked { background: rgba(239, 68, 68, 0.09); color: #B91C1C; }
+    .p-recipe.is-na { background: transparent; color: var(--text-muted); font-weight: 500; }
+
+    /* ---------- دستهٔ «تحقیق و توسعه»: کالای تعریف‌شده توسط درخواست‌کننده ---------- */
+    .p-chip-rd {
+        display: inline-flex; align-items: center; gap: 0.3rem;
+        background: rgba(245, 158, 11, 0.12); color: #B45309;
+        border: 1px dashed rgba(245, 158, 11, 0.5);
+        padding: 0.2rem 0.65rem; border-radius: var(--radius-xs);
+        font-size: 0.78rem; font-weight: 700;
+    }
+
+    /* ---------- وضعیت (فعال/غیرفعال در سفارش‌گذاری) ---------- */
+    .p-status-btn {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        font-family: 'Vazir', sans-serif; font-size: 0.8rem; font-weight: 600;
+        padding: 0.25rem 0.65rem; border-radius: 999px;
+        border: 1px solid transparent; background: transparent;
+        cursor: pointer; transition: all var(--transition-fast);
+    }
+    .p-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .p-status-btn.is-active {
+        color: #15803D; background: rgba(34, 197, 94, 0.08); border-color: rgba(34, 197, 94, 0.22);
+    }
+    .p-status-btn.is-active .p-dot { background: var(--accent-green); box-shadow: 0 0 0 3px rgba(34,197,94,0.12); }
+    .p-status-btn.is-active:hover { background: rgba(34, 197, 94, 0.16); }
+    .p-status-btn.is-off {
+        color: var(--gray-500, #64748B); background: rgba(148, 163, 184, 0.12); border-color: rgba(148, 163, 184, 0.25);
+    }
+    .p-status-btn.is-off .p-dot { background: var(--border-strong); }
+    .p-status-btn.is-off:hover { background: rgba(148, 163, 184, 0.22); color: var(--text-primary); }
+
+    /* ---------- اکشن‌ها ---------- */
+    .p-actions { display: inline-flex; gap: 0.4rem; }
+
+    .act-chip {
+        display: inline-flex; align-items: center; gap: 0.35rem;
+        height: 32px; padding: 0 0.7rem;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border-default);
+        background: var(--bg-card);
+        color: var(--text-secondary);
+        font-size: 0.78rem; font-weight: 500; text-decoration: none;
+        transition: all var(--transition-fast);
+    }
+    .act-chip i { font-size: 0.78rem; }
+    .act-edit:hover { color: var(--primary-dark); border-color: rgba(139,92,246,0.4); background: rgba(139,92,246,0.07); }
+    .act-del:hover  { color: #DC2626; border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.07); }
+
+    /* ---------- ریسپانسیو ---------- */
+    @media (max-width: 992px) {
+        .search-box { max-width: none; flex-basis: 100%; order: 10; }
+    }
+
+    @media (max-width: 480px) {
+        .p-actions { gap: 0.3rem; }
+        .act-chip { padding: 0 0.55rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="products-page">
+
+    <!-- هدر صفحه -->
+    <div class="page-header">
+        <h1 class="page-title"><i class="fas fa-boxes-stacked"></i> مدیریت محصولات</h1>
+        <div class="header-actions">
+            <a href="{% url 'category_list' cafe_code=cafe_code %}" class="btn p-btn-outline"
+               title="تعریف و مدیریت دسته‌بندی محصولات">
+                <i class="fas fa-layer-group"></i> دسته‌بندی‌ها
+            </a>
+            <a href="{% url 'product_create' cafe_code=cafe_code %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> محصول جدید
+            </a>
+        </div>
+    </div>
+
+    <!-- فیلترها -->
+    <div class="filters-container">
+        <form method="GET" class="p-toolbar">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" name="search" value="{{ search }}"
+                       placeholder="جستجو در محصولات..." class="search-input" aria-label="جستجو">
+            </div>
+
+            <select name="category" class="p-select" aria-label="فیلتر دسته‌بندی">
+                <option value="">همه دسته‌بندی‌ها</option>
+                {% for category in categories %}
+                <option value="{{ category.id }}" {% if category.id|stringformat:"s" == selected_category %}selected{% endif %}>
+                    {{ category.name }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <select name="department" class="p-select" aria-label="فیلتر بخش درخواست">
+                <option value="">همه بخش‌های درخواست</option>
+                <option value="general" {% if selected_department == 'general' %}selected{% endif %}>عمومی (همه بخش‌ها)</option>
+                <option value="none" {% if selected_department == 'none' %}selected{% endif %}>بدون بخش</option>
+                {% for dep in departments_qs %}
+                <option value="{{ dep.id }}" {% if dep.id|stringformat:"s" == selected_department %}selected{% endif %}>
+                    {{ dep.name }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <select name="is_active" class="p-select" aria-label="فیلتر وضعیت">
+                <option value="">همه وضعیت‌ها</option>
+                <option value="true" {% if selected_status == 'true' %}selected{% endif %}>فقط فعال</option>
+                <option value="false" {% if selected_status == 'false' %}selected{% endif %}>فقط غیرفعال</option>
+            </select>
+
+            <select name="pricing" class="p-select" aria-label="فیلتر قیمت">
+                <option value="">همه قیمت‌ها</option>
+                <option value="priced" {% if selected_pricing == 'priced' %}selected{% endif %}>فقط قیمت‌دار</option>
+                <option value="unpriced" {% if selected_pricing == 'unpriced' %}selected{% endif %}>بدون قیمت</option>
+            </select>
+
+            <select name="recipe" class="p-select" aria-label="فیلتر وضعیت رسپی">
+                <option value="">همه وضعیت‌های رسپی</option>
+                <option value="used" {% if selected_recipe == 'used' %}selected{% endif %}>فقط در رسپی</option>
+                <option value="missing" {% if selected_recipe == 'missing' %}selected{% endif %}>فقط بدون رسپی (مخفی)</option>
+                <option value="free" {% if selected_recipe == 'free' %}selected{% endif %}>فقط بدون نیاز به رسپی</option>
+            </select>
+
+            <button type="submit" class="p-btn-primary">
+                <i class="fas fa-search"></i> جستجو
+            </button>
+
+            {% if search or selected_category or selected_department or selected_status or selected_pricing or selected_recipe %}
+            <a href="{% url 'product_list' cafe_code=cafe_code %}" class="p-reset" title="حذف همه فیلترها">
+                <i class="fas fa-xmark"></i> پاک‌کردن
+            </a>
+            {% endif %}
+        </form>
+    </div>
+
+    {% if products %}
+    <!-- جدول محصولات -->
+    <div class="table-card">
+        <div class="table-header">
+            <div class="table-title"><i class="fas fa-list"></i> لیست محصولات</div>
+            <span class="table-meta">{{ products|length }} محصول</span>
+        </div>
+        <div class="table-scroll">
+            <table class="data-table p-table">
+                <thead>
+                    <tr>
+                        <th>محصول</th>
+                        <th>دسته‌بندی</th>
+                        <th>بخش‌های درخواست</th>
+                        <th>واحد</th>
+                        <th>قیمت واحد</th>
+                        <th>حداقل موجودی</th>
+                        <th>عمر مفید</th>
+                        <th>رسپی و سفارش</th>
+                        <th>وضعیت</th>
+                        <th style="text-align:left;">عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr>
+                        <!-- محصول -->
+                        <td>
+                            <div class="p-name">{{ product.name }}</div>
+                            {% if not product.is_complete %}
+                            <span class="p-incomplete" title="اطلاعات این کالا کامل نیست؛ در پیشنهادهای درخواست نمایش داده نمی‌شود">
+                                <i class="fas fa-triangle-exclamation" style="font-size:0.65rem;"></i> ناقص
+                            </span>
+                            {% endif %}
+                            {% if product.description %}
+                            <div class="p-sub" title="{{ product.description }}">
+                                {{ product.description|truncatechars:60 }}
+                            </div>
+                            {% endif %}
+                        </td>
+
+                        <!-- دسته‌بندی -->
+                        <td>
+                            {% if product.category %}
+                                {% if product.is_rd_category %}
+                                <span class="p-chip-rd" title="کالای تعریف‌شده توسط درخواست‌کننده — تا بررسی مدیریت در این دسته می‌ماند">
+                                    <i class="fas fa-flask" style="font-size:0.68rem;"></i> {{ product.category.name }}
+                                </span>
+                                {% else %}
+                                <span class="p-chip">{{ product.category.name }}</span>
+                                {% endif %}
+                            {% else %}
+                            <span class="muted-dash">—</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- بخش‌های درخواست -->
+                        <td>
+                            <div style="display:flex;flex-wrap:wrap;gap:0.25rem;">
+                                {% for sec_label in product.request_section_labels %}
+                                <span class="{% if sec_label == 'عمومی' %}p-chip{% elif sec_label == 'بدون بخش' %}p-chip-muted{% else %}p-chip-accent{% endif %}">{{ sec_label }}</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+
+                        <!-- واحد -->
+                        <td>
+                            {% if product.unit %}
+                            <span class="p-chip-accent">{{ product.unit.symbol|default:product.unit.name }}</span>
+                            <div class="p-sub">{{ product.unit.name }}</div>
+                            {% else %}
+                            <span class="muted-dash">—</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- قیمت واحد کوچک‌ترین واحد -->
+                        <td>
+                            {% if product.base_unit_price is not None %}
+                            <div class="p-price">{{ product.base_unit_price|number_format }} <span style="font-weight:500;font-size:0.78rem;color:var(--text-secondary);">ریال</span></div>
+                            <div class="p-sub">به ازای هر ۱ {{ product.smallest_unit|default:"واحد" }}</div>
+                            {% else %}
+                            <span class="muted-dash">—</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- حداقل موجودی -->
+                        <td><span class="p-num">{{ product.min_stock }}</span></td>
+
+                        <!-- عمر مفید -->
+                        <td>
+                            {% if product.shelf_life_days %}
+                            <span class="p-num">{{ product.shelf_life_days }}</span><span style="color:var(--text-muted);font-size:0.78rem;"> روز</span>
+                            {% else %}
+                            <span class="muted-dash">—</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- مصرف در رسپی منو + قابلیت سفارش -->
+                        <td>
+                            {% if product.is_food_category %}
+                                {% if product.cogs_used_in_recipe %}
+                                <span class="p-recipe is-used" title="این کالا در رسپی منو مصرف می‌شود و برای درخواست‌کننده قابل انتخاب است">
+                                    <i class="fas fa-utensils"></i> در رسپی (فعال در سفارش)
+                                </span>
+                                {% else %}
+                                <span class="p-recipe is-blocked" title="کالای غذایی بدون رسپی؛ تا وقتی در رسپی منو مصرف نشود، در فرم درخواست دیده نمی‌شود">
+                                    <i class="fas fa-eye-slash"></i> بدون رسپی (مخفی در سفارش)
+                                </span>
+                                {% endif %}
+                            {% elif product.cogs_used_in_recipe %}
+                                <span class="p-recipe is-used" title="این کالا در رسپی منو مصرف می‌شود">
+                                    <i class="fas fa-utensils"></i> در رسپی
+                                </span>
+                            {% else %}
+                                <span class="p-recipe is-na" title="این دسته مواد غذایی نیست؛ بدون رسپی هم قابل سفارش است">
+                                    <i class="fas fa-check"></i> بدون نیاز به رسپی
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- وضعیت سفارش‌گذاری (قابل تغییر با کلیک) -->
+                        <td>
+                            <form method="POST" action="{% url 'product_toggle_active' cafe_code=cafe_code product_id=product.id %}" style="display:inline;">
+                                {% csrf_token %}
+                                {% if search %}<input type="hidden" name="filter_search" value="{{ search }}">{% endif %}
+                                {% if selected_category %}<input type="hidden" name="filter_category" value="{{ selected_category }}">{% endif %}
+                                {% if selected_department %}<input type="hidden" name="filter_department" value="{{ selected_department }}">{% endif %}
+                                {% if selected_status %}<input type="hidden" name="filter_is_active" value="{{ selected_status }}">{% endif %}
+                                {% if selected_pricing %}<input type="hidden" name="filter_pricing" value="{{ selected_pricing }}">{% endif %}
+                                {% if selected_recipe %}<input type="hidden" name="filter_recipe" value="{{ selected_recipe }}">{% endif %}
+                                <button type="submit"
+                                        class="p-status-btn {% if product.is_active %}is-active{% else %}is-off{% endif %}"
+                                        title="{% if product.is_active %}فعال در سفارش‌گذاری — برای غیرفعال‌کردن کلیک کنید{% else %}غیرفعال در سفارش‌گذاری — برای فعال‌کردن کلیک کنید{% endif %}">
+                                    <span class="p-dot"></span>
+                                    {% if product.is_active %}فعال{% else %}غیرفعال{% endif %}
+                                </button>
+                            </form>
+                        </td>
+
+                        <!-- عملیات -->
+                        <td style="text-align:left;">
+                            <div class="p-actions">
+                                <a href="{% url 'product_update' cafe_code=cafe_code product_id=product.id %}"
+                                   class="act-chip act-edit" title="ویرایش محصول">
+                                    <i class="fas fa-pen"></i> ویرایش
+                                </a>
+                                <a href="{% url 'product_delete' cafe_code=cafe_code product_id=product.id %}"
+                                   class="act-chip act-del" title="حذف محصول">
+                                    <i class="fas fa-trash-can"></i> حذف
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="table-card">
+        <div class="card-body">
+            <div class="empty-state">
+                <i class="fas fa-box-open"></i>
+                <h3 style="font-size:1.05rem; font-weight:700; color:var(--text-primary); margin-bottom:0.4rem;">محصولی یافت نشد</h3>
+                <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1.25rem;">هیچ محصولی با معیارهای جستجوی شما یافت نشد.</p>
+                <a href="{% url 'product_create' cafe_code=cafe_code %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> افزودن اولین محصول
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

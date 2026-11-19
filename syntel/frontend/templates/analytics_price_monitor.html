@@ -1,0 +1,363 @@
+{% extends 'dashboard_layout.html' %}
+{% load static %}
+
+{% block title %}نظارت بر قیمت - تحلیل{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-grid {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem; margin-bottom: 1.5rem;
+    }
+    .price-card { font-size: 0.9rem; }
+    .price-value { font-size: 1.5rem; font-weight: 700; }
+    .price-change {
+        display: inline-flex; align-items: center; gap: 0.25rem;
+        padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700;
+    }
+    .price-change.up { background: rgba(239,68,68,0.1); color: var(--danger); }
+    .price-change.down { background: rgba(16,185,129,0.1); color: var(--success); }
+    .price-change.stable { background: var(--gray-50); color: var(--gray-500); }
+
+    .table-card { background: white; border-radius: var(--radius-xl); box-shadow: var(--shadow-xl); overflow: hidden; margin-bottom: 1.5rem; }
+    .table-header { padding: 1.5rem 2rem; border-bottom: 1px solid var(--gray-200); display: flex; justify-content: space-between; align-items: center; }
+    .table-title { font-size: 1.15rem; font-weight: 700; color: var(--dark); display: flex; align-items: center; gap: 0.5rem; }
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table thead { background: var(--gray-50); }
+    .data-table th { padding: 1rem 1.25rem; text-align: right; font-size: 0.85rem; font-weight: 700; color: var(--dark); border-bottom: 2px solid var(--gray-200); }
+    .data-table td { padding: 0.75rem 1.25rem; font-size: 0.85rem; color: var(--gray-500); border-bottom: 1px solid var(--gray-200); }
+    .data-table tbody tr { transition: all 0.2s; }
+    .data-table tbody tr:hover { background: var(--gray-50); }
+
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; }
+    .modal-overlay.show { display: flex; }
+    .modal-content { background: white; border-radius: var(--radius-xl); width: 90%; max-width: 800px; box-shadow: var(--shadow-xl); overflow: hidden; }
+    .modal-header { padding: 1.5rem 2rem; border-bottom: 1px solid var(--gray-200); display: flex; justify-content: space-between; align-items: center; }
+    .modal-title { font-size: 1.25rem; font-weight: 700; color: var(--dark); }
+    .modal-close { background: none; border: none; font-size: 1.5rem; color: var(--gray-400); cursor: pointer; }
+    .modal-close:hover { color: var(--dark); }
+    .modal-body { padding: 2rem; }
+    .chart-wrapper { height: 400px; }
+
+    @media (max-width: 768px) {
+        .data-table td, .data-table th { padding: 0.5rem; font-size: 0.75rem; }
+        .chart-wrapper { height: 300px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="fas fa-tags"></i>
+        نظارت بر قیمت
+    </h1>
+    <div class="header-actions">
+        <div class="current-date">
+            <i class="fas fa-calendar-alt"></i>
+            <span id="persianDate"></span>
+        </div>
+        <a href="{% url 'logout' %}" class="logout-btn">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>خروج</span>
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="filters-container">
+    <div class="filters-grid" id="filterGrid">
+        <div class="filter-group">
+            <label class="filter-label">دسته‌بندی</label>
+            <select class="filter-select" id="categoryFilter">
+                <option value="">همه دسته‌بندی‌ها</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label class="filter-label">فروشگاه/تامین‌کننده</label>
+            <select class="filter-select" id="supplierFilter">
+                <option value="">همه تأمین‌کنندگان</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label class="filter-label">محصول</label>
+            <input type="text" class="filter-input" id="productSearch" placeholder="جستجوی محصول...">
+        </div>
+        <div class="filter-group">
+            <label class="filter-label">دوره</label>
+            <select class="filter-select" id="periodFilter">
+                <option value="1">۱ ماه گذشته</option>
+                <option value="3" selected>۳ ماه گذشته</option>
+                <option value="6">۶ ماه گذشته</option>
+                <option value="12">۱ سال گذشته</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Overview -->
+<div class="stats-grid" id="statsOverview">
+    <div class="stat-card">
+        <div class="stat-icon-circle primary"><i class="fas fa-box"></i></div>
+        <div class="stat-value primary" id="totalProducts">-</div>
+        <div class="stat-label">کل محصولات</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon-circle success"><i class="fas fa-check-circle"></i></div>
+        <div class="stat-value success" id="stablePrices">-</div>
+        <div class="stat-label">قیمت‌های پایدار</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon-circle danger"><i class="fas fa-arrow-up"></i></div>
+        <div class="stat-value danger" id="increasedPrices">-</div>
+        <div class="stat-label">افزایش قیمت</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon-circle warning"><i class="fas fa-arrow-down"></i></div>
+        <div class="stat-value warning" id="decreasedPrices">-</div>
+        <div class="stat-label">کاهش قیمت</div>
+    </div>
+</div>
+
+<!-- Products Table -->
+<div class="table-card">
+    <div class="table-header">
+        <div class="table-title"><i class="fas fa-table"></i> لیست محصولات</div>
+        <span class="current-date" style="font-size:0.8rem;" id="updateInfo">در حال بارگذاری...</span>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="data-table" id="productsTable">
+            <thead>
+                <tr>
+                    <th>نام محصول</th>
+                    <th>دسته‌بندی</th>
+                    <th>تامین‌کننده</th>
+                    <th>قیمت قبلی</th>
+                    <th>قیمت جدید</th>
+                    <th>تغییر</th>
+                    <th>آخرین به‌روزرسانی</th>
+                </tr>
+            </thead>
+            <tbody id="productsTableBody">
+                <tr><td colspan="7" style="text-align:center;padding:2rem;">در حال بارگذاری...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Price History Modal -->
+<div class="modal-overlay" id="priceModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title" id="modalProductName">تاریخچه قیمت</h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="chart-wrapper">
+                <canvas id="priceChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
+<script src="{% static 'vendor/axios/axios.min.js' %}"></script>
+<script>
+    let priceChartInstance = null;
+    let currentData = [];
+
+    function getCookie(name) {
+        let value = null;
+        if (document.cookie && document.cookie !== '') {
+            document.cookie.split(';').forEach(function(c) {
+                c = c.trim();
+                if (c.substring(0, name.length + 1) === (name + '=')) {
+                    value = decodeURIComponent(c.substring(name.length + 1));
+                }
+            });
+        }
+        return value;
+    }
+    const csrftoken = getCookie('csrftoken');
+
+    function toFarsiNumber(num) {
+        const d = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+        return num.toString().replace(/\d/g, x => d[x]);
+    }
+    function formatNumber(num) {
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+    function getPersianDate() {
+        return new Intl.DateTimeFormat('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date());
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('persianDate').textContent = getPersianDate();
+        loadInitialData();
+        setupFilters();
+    });
+
+    function setupFilters() {
+        document.getElementById('categoryFilter').addEventListener('change', loadProducts);
+        document.getElementById('supplierFilter').addEventListener('change', loadProducts);
+        document.getElementById('periodFilter').addEventListener('change', loadProducts);
+        var searchInput = document.getElementById('productSearch');
+        var searchTimer;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(loadProducts, 300);
+        });
+    }
+
+    function loadInitialData() {
+        fetch('/{{ cafe_code }}/api/dashboard/filters/')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                populateSelect('categoryFilter', data.categories || []);
+                populateSelect('supplierFilter', data.suppliers || []);
+            })
+            .catch(function(e) { console.error('Error loading filters:', e); });
+        loadProducts();
+    }
+
+    function populateSelect(id, items) {
+        var sel = document.getElementById(id);
+        if (!items || items.length === 0) return;
+        items.forEach(function(item) {
+            var opt = document.createElement('option');
+            if (typeof item === 'object') { opt.value = item.id; opt.textContent = item.name; }
+            else { opt.value = item; opt.textContent = item; }
+            sel.appendChild(opt);
+        });
+    }
+
+    function loadProducts() {
+        var params = new URLSearchParams();
+        var cat = document.getElementById('categoryFilter').value;
+        var sup = document.getElementById('supplierFilter').value;
+        var period = document.getElementById('periodFilter').value;
+        var search = document.getElementById('productSearch').value;
+        if (cat) params.append('category', cat);
+        if (sup) params.append('supplier', sup);
+        if (period) params.append('months', period);
+        if (search) params.append('search', search);
+
+        var tbody = document.getElementById('productsTableBody');
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;"><i class="fas fa-spinner fa-spin"></i> در حال بارگذاری...</td></tr>';
+
+        fetch('/{{ cafe_code }}/api/dashboard/products/changes/?' + params.toString())
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                currentData = data.products || data || [];
+                renderTable(currentData);
+                updateStats(currentData);
+                document.getElementById('updateInfo').textContent = '✓ به‌روزرسانی شده';
+                setTimeout(function() {
+                    document.getElementById('updateInfo').textContent = 'آخرین به‌روزرسانی: ' + new Date().toLocaleString('fa-IR');
+                }, 2000);
+            })
+            .catch(function(e) {
+                console.error('Error loading products:', e);
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--danger);">خطا در بارگذاری داده‌ها</td></tr>';
+            });
+    }
+
+    function renderTable(products) {
+        var tbody = document.getElementById('productsTableBody');
+        if (!products || products.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--gray-500);">هیچ محصولی یافت نشد</td></tr>';
+            return;
+        }
+        tbody.innerHTML = products.map(function(p) {
+            var change = p.change_percentage || 0;
+            var changeClass = change > 0 ? 'up' : (change < 0 ? 'down' : 'stable');
+            var changeIcon = change > 0 ? 'fa-arrow-up' : (change < 0 ? 'fa-arrow-down' : 'fa-minus');
+            return '<tr onclick="openPriceModal(' + (p.id || 0) + ',\'' + escapeStr(p.name) + '\')" style="cursor:pointer;">' +
+                '<td style="font-weight:600;color:var(--dark);">' + (p.name || '-') + '</td>' +
+                '<td>' + (p.category || '-') + '</td>' +
+                '<td>' + (p.supplier || '-') + '</td>' +
+                '<td>' + toFarsiNumber(formatNumber(Math.round(p.old_price || 0))) + '</td>' +
+                '<td>' + toFarsiNumber(formatNumber(Math.round(p.new_price || 0))) + '</td>' +
+                '<td><span class="price-change ' + changeClass + '"><i class="fas ' + changeIcon + '"></i> ' + toFarsiNumber(Math.abs(change).toFixed(1)) + '%</span></td>' +
+                '<td>' + (p.updated_at || '-') + '</td>' +
+            '</tr>';
+        }).join('');
+    }
+
+    function escapeStr(s) {
+        if (!s) return '';
+        return s.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    function updateStats(products) {
+        if (!products || products.length === 0) return;
+        document.getElementById('totalProducts').textContent = toFarsiNumber(products.length);
+        var stable = products.filter(function(p) { return Math.abs(p.change_percentage || 0) < 1; }).length;
+        var increased = products.filter(function(p) { return (p.change_percentage || 0) >= 1; }).length;
+        var decreased = products.filter(function(p) { return (p.change_percentage || 0) <= -1; }).length;
+        document.getElementById('stablePrices').textContent = toFarsiNumber(stable);
+        document.getElementById('increasedPrices').textContent = toFarsiNumber(increased);
+        document.getElementById('decreasedPrices').textContent = toFarsiNumber(decreased);
+    }
+
+    function openPriceModal(productId, productName) {
+        document.getElementById('modalProductName').textContent = 'تاریخچه قیمت - ' + productName;
+        document.getElementById('priceModal').classList.add('show');
+        loadPriceHistory(productId);
+    }
+
+    function closeModal() {
+        document.getElementById('priceModal').classList.remove('show');
+        if (priceChartInstance) { priceChartInstance.destroy(); priceChartInstance = null; }
+    }
+
+    function loadPriceHistory(productId) {
+        fetch('/{{ cafe_code }}/api/dashboard/products/' + productId + '/history/')
+            .then(function(r) { return r.json(); })
+            .then(function(data) { renderPriceChart(data); })
+            .catch(function(e) { console.error('Error loading history:', e); });
+    }
+
+    function renderPriceChart(data) {
+        var ctx = document.getElementById('priceChart');
+        if (priceChartInstance) { priceChartInstance.destroy(); }
+        var labels = data.history ? data.history.map(function(h) { return h.date; }) : [];
+        var values = data.history ? data.history.map(function(h) { return h.price; }) : [];
+        priceChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'قیمت',
+                    data: values,
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99,102,241,0.1)',
+                    fill: true, tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { rtl: true, labels: { font: { family: 'Vazir' } } },
+                    tooltip: { rtl: true, textDirection: 'rtl',
+                        callbacks: {
+                            label: function(ctx) { return toFarsiNumber(formatNumber(Math.round(ctx.parsed.y))) + ' ریال'; }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { family: 'Vazir' } } },
+                    y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { family: 'Vazir' } } }
+                }
+            }
+        });
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeModal();
+    });
+</script>
+{% endblock %}

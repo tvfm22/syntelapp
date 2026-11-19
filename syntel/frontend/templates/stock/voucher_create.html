@@ -1,0 +1,648 @@
+﻿{% extends 'base.html' %}
+{% load static custom_filters %}
+
+{% block title %}{% if editing %}ویرایش پیش‌نویس حواله - {{ edit_voucher.voucher_number }}{% else %}ثبت حواله - {{ type_label }}{% endif %} - Kuker{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/jalali_date_group.css' %}">
+<style>
+    /* ═══ فرم یکپارچهٔ حواله — هماهنگ با توکن‌های سیستم ═══ */
+    .voucher-form-wrap { max-width: 1050px; margin: 0 auto; }
+    /* ── هدر یکدست صفحه ── */
+    .voucher-form-wrap .page-header {
+        height: auto; min-height: 64px; padding: var(--space-3) var(--space-5);
+        margin-bottom: var(--space-4); flex-wrap: wrap; gap: var(--space-3);
+    }
+    .ph-main { display: flex; align-items: center; gap: 0.8rem; min-width: 0; }
+    .ph-icon {
+        width: 44px; height: 44px; border-radius: var(--radius-md); flex-shrink: 0;
+        background: rgba(139,92,246,0.1); color: var(--accent-indigo);
+        display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+    }
+    .ph-title { min-width: 0; }
+    .ph-title h1 {
+        font-size: 1.15rem; font-weight: 800; color: var(--text-primary);
+        display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; line-height: 1.4; margin: 0;
+    }
+    .ph-title .page-sub {
+        font-size: 0.76rem; font-weight: 500; color: var(--text-muted);
+        margin-top: 0.1rem; line-height: 1.7;
+    }
+
+    /* ── انتخاب نوع (فقط در حالت ایجاد) ── */
+    .type-switch {
+        display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center;
+        background: var(--bg-card); border: 1px solid var(--border-light);
+        border-radius: var(--radius-xl); box-shadow: var(--shadow-sm);
+        padding: 0.6rem 0.9rem; margin-bottom: var(--space-4);
+    }
+    .type-switch .sw-label {
+        font-size: 0.75rem; font-weight: 700; color: var(--text-muted);
+        display: inline-flex; align-items: center; gap: 0.35rem; margin-inline-end: 0.15rem;
+        white-space: nowrap;
+    }
+    .type-pill {
+        display: inline-flex; align-items: center; gap: 0.35rem;
+        padding: 0.3rem 0.8rem; border-radius: 999px; font-size: 0.76rem; font-weight: 600;
+        text-decoration: none; background: var(--bg-card); border: 1.5px solid var(--border-default);
+        color: var(--text-secondary); transition: all var(--transition-fast); white-space: nowrap;
+    }
+    .type-pill:hover { border-color: var(--accent-indigo); color: var(--accent-indigo); }
+    .type-pill.active { background: var(--accent-indigo); border-color: var(--accent-indigo); color: white; }
+
+    /* ── کارت سند ── */
+    .form-card {
+        background: var(--bg-card); border: 1px solid var(--border-light);
+        border-radius: var(--radius-xl); box-shadow: var(--shadow-sm);
+        padding: var(--space-5); margin-bottom: var(--space-4);
+    }
+    .form-card-title {
+        font-size: 0.92rem; font-weight: 800; color: var(--text-primary);
+        display: flex; align-items: center; gap: 0.5rem; margin-bottom: var(--space-4);
+    }
+    .form-card-title i { color: var(--accent-indigo); }
+
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-3); }
+    .field { display: flex; flex-direction: column; gap: 0.3rem; }
+    .field label { font-size: 0.74rem; font-weight: 700; color: var(--text-muted); }
+    .field input, .field select, .field textarea {
+        padding: 0.55rem 0.8rem; border: 1.5px solid var(--border-default);
+        border-radius: var(--radius-md); font-family: 'Vazir', sans-serif;
+        font-size: 0.82rem; background: var(--bg-card); color: var(--text-primary);
+    }
+    .field input:focus, .field select:focus, .field textarea:focus {
+        outline: none; border-color: var(--accent-indigo);
+    }
+    .field textarea { min-height: 70px; resize: vertical; }
+
+    /* ── اقلام ── */
+    .items-head, .item-row {
+        display: grid; gap: 0.5rem; align-items: center;
+    }
+    .items-head {
+        grid-template-columns: 2.2fr 1.6fr 0.9fr 1fr 1fr 1.3fr 30px;
+        padding: 0 0.2rem 0.4rem; font-size: 0.7rem; font-weight: 700; color: var(--text-muted);
+    }
+    .item-row {
+        grid-template-columns: 2.2fr 1.6fr 0.9fr 1fr 1fr 1.3fr 30px;
+        background: var(--bg-subtle, #f8fafc); border: 1px solid var(--border-light);
+        border-radius: var(--radius-lg); padding: 0.55rem; margin-bottom: 0.5rem;
+    }
+    .item-row select, .item-row input {
+        width: 100%; padding: 0.45rem 0.6rem; border: 1.5px solid var(--border-default);
+        border-radius: var(--radius-md); font-family: 'Vazir', sans-serif;
+        font-size: 0.76rem; background: var(--bg-card); color: var(--text-primary);
+    }
+    .item-row select:focus, .item-row input:focus { outline: none; border-color: var(--accent-indigo); }
+    .remove-row {
+        width: 28px; height: 28px; border: none; border-radius: var(--radius-md);
+        background: #fee2e2; color: #b91c1c; cursor: pointer; font-size: 0.8rem;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .remove-row:hover { background: #fecaca; }
+    .add-row-btn {
+        margin-top: 0.4rem; padding: 0.45rem 1rem; border: 1.5px dashed var(--accent-indigo);
+        border-radius: var(--radius-md); background: transparent; color: var(--accent-indigo);
+        font-family: 'Vazir', sans-serif; font-size: 0.8rem; font-weight: 700; cursor: pointer;
+        display: inline-flex; align-items: center; gap: 0.4rem;
+    }
+    .add-row-btn:hover { background: rgba(99,102,241,.08); }
+
+    /* ── انتخاب تایپی محصول در ردیف‌ها (مثل باکس نام کالا) ── */
+    .prod-ac { position: relative; }
+    .prod-ac-drop {
+        position: absolute; top: calc(100% + 3px); right: 0; left: 0; z-index: 60;
+        background: var(--bg-card); border: 1.5px solid var(--border-default);
+        border-radius: var(--radius-md); box-shadow: 0 10px 28px rgba(15,23,42,.18);
+        max-height: 230px; overflow-y: auto; text-align: right;
+    }
+    .prod-ac-item {
+        padding: 0.5rem 0.65rem; font-size: 0.78rem; cursor: pointer;
+        border-bottom: 1px solid var(--border-light); color: var(--text-primary);
+        display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+        white-space: nowrap; overflow: hidden;
+    }
+    .prod-ac-item:last-child { border-bottom: none; }
+    .prod-ac-item.active, .prod-ac-item:hover { background: rgba(99,102,241,.12); color: var(--accent-indigo); }
+    .prod-ac-noresult {
+        padding: 0.55rem 0.65rem; font-size: 0.74rem; color: var(--text-muted);
+    }
+    .item-row .prod-ac input.row-product-name.invalid {
+        border-color: #dc2626; background: #fef2f2;
+    }
+
+    /* ── دکمه‌های ثبت ── */
+    .form-actions { display: flex; gap: 0.7rem; flex-wrap: wrap; align-items: center; }
+    .btn { padding: 0.6rem 1.3rem; border: none; border-radius: var(--radius-md);
+        font-family: 'Vazir', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer;
+        display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none;
+        transition: all var(--transition-fast); }
+    .btn-primary { background: var(--accent-indigo); color: white; }
+    .btn-primary:hover { background: var(--accent-indigo-dark, #4f46e5); }
+    .btn-success { background: #10b981; color: white; }
+    .btn-success:hover { background: #059669; }
+    .btn-outline { background: var(--bg-card); color: var(--text-secondary); border: 1.5px solid var(--border-default); }
+    .btn-outline:hover { border-color: var(--accent-indigo); color: var(--accent-indigo); }
+
+    .hint {
+        margin-top: var(--space-3); font-size: 0.74rem; color: var(--text-muted);
+        display: flex; align-items: flex-start; gap: 0.4rem; line-height: 1.7;
+    }
+    .hint i { color: var(--accent-indigo); margin-top: 0.15rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="voucher-form-wrap">
+
+    <div class="page-header">
+        <div class="ph-main">
+            <div class="ph-icon"><i class="fas fa-file-invoice"></i></div>
+            <div class="ph-title">
+                <h1>{% if editing %}ویرایش پیش‌نویس: <span class="mono" style="font-size:1rem">{{ edit_voucher.voucher_number }}</span>{% else %}ثبت {{ type_label }}{% endif %}</h1>
+                <div class="page-sub">
+                    {% if editing %}این پیش‌نویس هنوز اثر روی موجودی ندارد — پس از ثبت، اثر اعمال می‌شود.{% else %}
+                    {% if voucher_type == 'adjustment' %}تعدیل پس از ثبت، برای نهایی‌سازی به تأیید مدیر می‌رود.
+                    {% elif voucher_type == 'direct_delivery' %}کالای تازه‌خرید از انبارِ انتخابی می‌گذرد: ورود و بلافاصله خروجِ آن ثبت می‌شود و «تحویل به بخش» در سوابق می‌ماند — موجودیِ خالصِ انبار تغییر نمی‌کند.
+                    {% else %}ثبت نوع‌های روتین، همان لحظه اثر روی موجودی دارد.{% endif %}{% endif %}
+                </div>
+            </div>
+        </div>
+        <a href="{% url 'voucher_list' cafe_code=cafe_code %}" class="btn btn-outline">
+            <i class="fas fa-list"></i> لیست حواله‌ها
+        </a>
+    </div>
+
+    {% if not editing %}
+    <!-- انتخاب نوع حواله -->
+    <div class="type-switch">
+        <span class="sw-label"><i class="fas fa-arrows-rotate"></i> نوع حواله:</span>
+        {% for key, label in voucher_types_all %}
+        <a href="{% url 'voucher_create' cafe_code=cafe_code voucher_type=key %}"
+           class="type-pill {% if key == voucher_type %}active{% endif %}">{{ label }}</a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if form_errors %}
+    <div style="background:#fee2e2;border:1px solid #fecaca;color:#991b1b;border-radius:var(--radius-lg);padding:0.9rem 1.2rem;margin-bottom:var(--space-4);font-size:0.85rem">
+        <b><i class="fas fa-triangle-exclamation"></i> اصلاح‌های لازم:</b>
+        <ul style="margin:0.5rem 1.2rem 0 0">
+            {% for e in form_errors %}<li>{{ e }}</li>{% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <form method="post" id="voucherForm">
+        {% csrf_token %}
+
+        <!-- کارت سند -->
+        <div class="form-card">
+            <div class="form-card-title"><i class="fas fa-file-signature"></i> مشخصات سند</div>
+            <div class="form-grid">
+                {% if 'source' in warehouse_fields %}
+                <div class="field">
+                    <label><i class="fas fa-warehouse"></i> انبار مبدأ <span style="color:#dc2626">*</span></label>
+                    <select name="source_warehouse" id="source_warehouse" required>
+                        <option value="">انتخاب انبار...</option>
+                        {% for wh in warehouses %}
+                        <option value="{{ wh.id }}"{% if form_source_wh and form_source_wh.id == wh.id or edit_source_wh and edit_source_wh.id == wh.id %} selected{% endif %}>
+                            {{ wh.name }}{% for dept in wh.departments.all %}{% if dept.is_department_warehouse %} (انبار بخش: {{ dept.name }}){% else %} (انبار مرکزی: {{ dept.name }}){% endif %}{% endfor %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                {% if 'destination' in warehouse_fields %}
+                <div class="field">
+                    <label><i class="fas fa-warehouse"></i>
+                        {% if voucher_type == 'direct_delivery' %}انبار (محل عبور کالا){% else %}انبار مقصد{% endif %}
+                        <span style="color:#dc2626">*</span></label>
+                    <select name="dest_warehouse" id="dest_warehouse" required>
+                        <option value="">انتخاب انبار...</option>
+                        {% for wh in warehouses %}
+                        <option value="{{ wh.id }}"{% if form_dest_wh and form_dest_wh.id == wh.id or edit_dest_wh and edit_dest_wh.id == wh.id %} selected{% endif %}>
+                            {{ wh.name }}{% for dept in wh.departments.all %}{% if dept.is_department_warehouse %} (انبار بخش: {{ dept.name }}){% else %} (انبار مرکزی: {{ dept.name }}){% endif %}{% endfor %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                {% if voucher_type == 'direct_delivery' %}
+                <div class="field">
+                    <label><i class="fas fa-users"></i> بخش گیرنده <span style="color:#dc2626">*</span></label>
+                    <select name="department" id="department" required>
+                        <option value="">انتخاب بخش...</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}"{% if selected_department and selected_department.id == dept.id %} selected{% endif %}>{{ dept.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="field">
+                    <label><i class="fas fa-calendar"></i> تاریخ (شمسی)</label>
+                    {% include 'includes/jalali_date_group.html' with jd_name='date' jd_id='voucher_date' jd_value=form_date %}
+                </div>
+                <div class="field" style="grid-column:1/-1">
+                    <label><i class="fas fa-align-right"></i> توضیحات</label>
+                    <textarea name="description" placeholder="شرح سند (اختیاری)">{{ edit_voucher.description|default:form_description|default:'' }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- اقلام -->
+        <div class="form-card">
+            <div class="form-card-title"><i class="fas fa-list-ul"></i> اقلام حواله</div>
+            <div class="items-head">
+                <span>محصول</span><span>موجودی انبار (اختیاری)</span>
+                <span>واحد</span><span>مقدار پایه</span><span>قیمت واحد</span>
+                <span>توضیح قلم</span><span></span>
+            </div>
+            <div id="itemsContainer"></div>
+            <button type="button" class="add-row-btn" id="addRowBtn">
+                <i class="fas fa-plus"></i> افزودن قلم
+            </button>
+
+            <div class="hint">
+                <i class="fas fa-circle-info"></i>
+                <div>
+                    <b>مقدار پایه</b> میزان اصلی کالا در واحد انتخابی است (برای تعدیل، علامت جهت را نشان می‌دهد: + افزایش، − کاهش).
+                    انتخاب <b>موجودی انبار</b> اختیاری است — برای خروج، ترجیحاً موجودیِ دقیقِ همان انبار را انتخاب کنید.
+                    <b>حوالهٔ ورود</b> همهٔ محصولات را می‌پذیرد: اگر کالا هنوز در انبار موجودی ندارد، هنگام نهایی‌سازی خودکار ثبت می‌شود.
+                </div>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" name="action" value="submit" class="btn btn-success" id="submitBtn">
+                <i class="fas fa-check-double"></i>
+                {% if voucher_type == 'adjustment' %}ثبت (در انتظار تأیید مدیر){% elif voucher_type == 'direct_delivery' %}ثبت و تحویل به بخش{% else %}ثبت و نهایی‌سازی{% endif %}
+            </button>
+            {% if not editing %}
+            <button type="submit" name="action" value="draft" class="btn btn-outline">
+                <i class="fas fa-pen"></i> ذخیره به‌عنوان پیش‌نویس
+            </button>
+            {% endif %}
+            <a href="{% if editing %}{% url 'voucher_detail' cafe_code=cafe_code voucher_id=edit_voucher.id %}{% else %}{% url 'voucher_list' cafe_code=cafe_code %}{% endif %}" class="btn btn-outline">انصراف</a>
+        </div>
+    </form>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/jalali_date_group.js' %}"></script>
+<script>
+(function () {
+    'use strict';
+
+    // ── فهرست کامل محصولات برای جستجوی تایپی (یک‌بار درج می‌شود، نه در هر ردیف) ──
+    var PRODUCTS = [
+        {% for p in products %}
+        { id: {{ p.id }}, name: "{{ p.name|escapejs }}" },
+        {% endfor %}
+    ];
+
+    var STOCK_ITEMS = [
+        {% for si in stock_items %}
+        { sid: {{ si.id }}, product_id: {{ si.product_id }},
+          warehouse_id: {{ si.warehouse_id|default:'null' }},
+          name: "{{ si.product.name|escapejs }}",
+          warehouse: "{{ si.warehouse.name|escapejs }}",
+          unit: "{{ si.unit.name|escapejs }}",
+          qty: "{{ si.quantity|trim_decimal }}" },
+        {% endfor %}
+    ];
+
+    // ── ردیف‌های پیش‌فرض: ویرایش پیش‌نویس یا بازنمایش فرم بعد از خطا ──
+    var PREFILL = [
+        {% if prefill_items %}
+            {% for it in prefill_items %}
+            { product_id: {{ it.product_id|default:'null' }},
+              product_name: "{{ it.product_name|escapejs }}",
+              stock_id: {{ it.stock_id|default:'null' }},
+              unit_id: {{ it.unit_id|default:'null' }},
+              base: "{{ it.base|escapejs }}",
+              price: "{{ it.price|escapejs }}",
+              desc: "{{ it.desc|escapejs }}" },
+            {% endfor %}
+        {% else %}
+            {% for it in edit_items %}
+            { product_id: {{ it.product_id|default:'null' }},
+              product_name: "{{ it.product.name|escapejs|default:'' }}",
+              stock_id: {{ it.stock_item_id|default:'null' }},
+              unit_id: {{ it.unit_id|default:'null' }},
+              base: "{{ it.base_quantity|trim_decimal }}",
+              price: "{{ it.unit_price|trim_decimal }}",
+              desc: "{{ it.description|escapejs }}" },
+            {% endfor %}
+        {% endif %}
+    ];
+    var container = document.getElementById('itemsContainer');
+    var typeAdjustment = {% if voucher_type == 'adjustment' %}true{% else %}false{% endif %};
+
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function populateStocks(row) {
+        var hidden = row.querySelector('.row-product-id');
+        var stockSel = row.querySelector('.row-stock');
+        var pid = hidden.value;
+        stockSel.innerHTML = '<option value="">—</option>';
+        if (pid) {
+            var wh = selectedWarehouseId();
+            var found = false;
+            STOCK_ITEMS.forEach(function (si) {
+                if (String(si.product_id) !== pid) return;
+                if (wh && String(si.warehouse_id) !== wh) return;
+                stockSel.innerHTML += '<option value="' + si.sid + '">' +
+                    esc(si.warehouse) + ' — موجودی ' + esc(si.qty) + ' ' + esc(si.unit) + '</option>';
+                found = true;
+            });
+            if (!found) {
+                stockSel.innerHTML += '<option value="">(موجودی ثبت‌نشده در این انبار)</option>';
+            }
+        }
+        stockSel.selectedIndex = 0;
+        return pid;
+    }
+
+    // انبار انتخاب‌شده (مبدأ یا مقصد) — برای فیلتر فهرست «موجودی انبار»
+    function selectedWarehouseId() {
+        var ids = ['source_warehouse', 'dest_warehouse'];
+        for (var i = 0; i < ids.length; i++) {
+            var el = document.getElementById(ids[i]);
+            if (el && el.value) return String(el.value);
+        }
+        return '';
+    }
+
+    // ── جستجوی تایپی محصول هر ردیف (مثل باکس «نام کالا» در درخواست کالا) ──
+    function acMatch(q) {
+        q = String(q || '').trim().toLowerCase();
+        if (!q) return [];
+        var out = [];
+        for (var i = 0; i < PRODUCTS.length && out.length < 30; i++) {
+            if (PRODUCTS[i].name.toLowerCase().indexOf(q) !== -1) out.push(PRODUCTS[i]);
+        }
+        return out;
+    }
+
+    function attachProductBox(row) {
+        var input = row.querySelector('.row-product-name');
+        var hidden = row.querySelector('.row-product-id');
+        var drop = row.querySelector('.prod-ac-drop');
+        var stockSel = row.querySelector('.row-stock');
+        var matches = [];
+        var active = -1;
+
+        function resetItemSelects() {
+            stockSel.innerHTML = '<option value="">—</option>';
+        }
+
+        function closeDrop() {
+            drop.hidden = true;
+            matches = [];
+            active = -1;
+        }
+
+        function renderDrop() {
+            var q = String(input.value || '').trim();
+            if (!q) { closeDrop(); return; }
+            matches = acMatch(q);
+            drop.innerHTML = '';
+            if (!matches.length) {
+                var none = document.createElement('div');
+                none.className = 'prod-ac-noresult';
+                none.textContent = 'محصولی با این نام یافت نشد';
+                drop.appendChild(none);
+                active = -1;
+                drop.hidden = false;
+                return;
+            }
+            matches.forEach(function (p, i) {
+                var el = document.createElement('div');
+                el.className = 'prod-ac-item' + (i === 0 ? ' active' : '');
+                el.textContent = p.name;
+                el.addEventListener('mousedown', function (ev) {
+                    ev.preventDefault();
+                    pickProduct(p);
+                });
+                drop.appendChild(el);
+            });
+            active = 0;
+            drop.hidden = false;
+        }
+
+        function markActive() {
+            var nodes = drop.children;
+            for (var i = 0; i < nodes.length; i++) {
+                nodes[i].classList.toggle('active', i === active);
+            }
+        }
+
+        function pickProduct(p) {
+            input.value = p.name;
+            hidden.value = p.id;
+            input.classList.remove('invalid');
+            closeDrop();
+            populateStocks(row);
+        }
+
+        input.addEventListener('focus', function () {
+            if (input.value.trim() && drop.hidden) renderDrop();
+        });
+        input.addEventListener('input', function () {
+            // اگر متن با نام محصولِ انتخاب‌شده فرق کند، انتخاب باطل می‌شود
+            if (hidden.value) {
+                var picked = null;
+                for (var i = 0; i < PRODUCTS.length; i++) {
+                    if (String(PRODUCTS[i].id) === hidden.value) { picked = PRODUCTS[i]; break; }
+                }
+                if (!picked || picked.name !== input.value) {
+                    hidden.value = '';
+                    input.classList.remove('invalid');
+                    resetItemSelects();
+                }
+            }
+            renderDrop();
+        });
+        input.addEventListener('keydown', function (ev) {
+            if (ev.key === 'ArrowDown' && !drop.hidden && matches.length) {
+                active = (active + 1) % matches.length;
+                markActive();
+                ev.preventDefault();
+            } else if (ev.key === 'ArrowUp' && !drop.hidden && matches.length) {
+                active = (active - 1 + matches.length) % matches.length;
+                markActive();
+                ev.preventDefault();
+            } else if (ev.key === 'Enter') {
+                if (!drop.hidden && matches.length && active >= 0) {
+                    pickProduct(matches[active]);
+                    ev.preventDefault(); // فقط هنگام انتخاب از فهرست؛ وگرنه Enter فرم را ثبت می‌کند
+                }
+            } else if (ev.key === 'Escape') {
+                closeDrop();
+            }
+        });
+        // باز شدن روی فیلدهای دیگر ردیف، فهرست را می‌بندد
+        [stockSel, row.querySelector('.row-unit'),
+         row.querySelector('.row-qty')].forEach(function (el) {
+            el.addEventListener('focus', closeDrop);
+        });
+        document.addEventListener('click', function (ev) {
+            if (!row.contains(ev.target)) closeDrop();
+        });
+    }
+
+    function addRow(data) {
+        data = data || {};
+        var row = document.createElement('div');
+        row.className = 'item-row';
+        row.innerHTML =
+            '<div class="prod-ac">' +
+            '  <input type="text" class="row-product-name" placeholder="تایپ نام کالا و انتخاب از فهرست..." ' +
+            '         autocomplete="off" required title="محصول">' +
+            '  <input type="hidden" class="row-product-id" name="product_id[]">' +
+            '  <div class="prod-ac-drop" hidden></div>' +
+            '</div>' +
+            '<select class="row-stock" name="stock_item_id[]"><option value="">—</option></select>' +
+            '<select class="row-unit" name="unit_id[]" required>' +
+            '  <option value="">واحد...</option>' +
+            {% for u in units %}
+            '  <option value="{{ u.id }}"' + (data.unit_id == {{ u.id }} ? ' selected' : '') + '>{{ u.name|escapejs }} ({{ u.symbol|escapejs }})</option>' +
+            {% endfor %}
+            '</select>' +
+            '<input type="number" class="row-qty" name="base_quantity[]" step="any" ' +
+            '       min="{% if typeAdjustment %}{% else %}0{% endif %}" placeholder="{% if typeAdjustment %}جهت: + یا −{% else %}مقدار{% endif %}" required value="' + esc(data.base || '') + '">' +
+            '<input type="number" class="row-price" name="unit_price[]" step="any" min="0" value="' + esc(data.price || '0') + '">' +
+            '<input type="text" class="row-desc" name="item_description[]" placeholder="اختیاری" value="' + esc(data.desc || '') + '">' +
+            '<button type="button" class="remove-row" title="حذف قلم"><i class="fas fa-xmark"></i></button>';
+
+        row.querySelector('.remove-row').addEventListener('click', function () { row.remove(); });
+        container.appendChild(row);
+
+        // محصول: نام در حالت ویرایش از روی قلم موجود پر می‌شود
+        var hidden = row.querySelector('.row-product-id');
+        var nameInput = row.querySelector('.row-product-name');
+        if (data.product_id) {
+            hidden.value = data.product_id;
+            nameInput.value = data.product_name || '';
+        }
+        attachProductBox(row);
+        // پس از اتصال DOM، گزینه‌های موجودی را بر اساس انتخاب اولیه پر کن
+        populateStocks(row);
+        if (data.stock_id) {
+            row.querySelector('.row-stock').value = String(data.stock_id);
+        }
+        return row;
+    }
+
+    // افزودن قلم — همیشه یک ردیف تازه اضافه می‌کند (قبلاً اگر ردیفی نیمه‌پر بود،
+    // دکمه بی‌صدا هیچ کاری نمی‌کرد)
+    document.getElementById('addRowBtn').addEventListener('click', function () {
+        addRow();
+    });
+
+    // با تغییر انبار، فهرست «موجودی انبار» همهٔ ردیف‌ها بازخوانی می‌شود
+    ['source_warehouse', 'dest_warehouse'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('change', function () {
+            container.querySelectorAll('.item-row').forEach(function (row) {
+                var stockSel = row.querySelector('.row-stock');
+                var prev = stockSel.value;
+                populateStocks(row);
+                if (prev) {
+                    Array.prototype.forEach.call(stockSel.options, function (o) {
+                        if (o.value === prev) stockSel.value = prev;
+                    });
+                }
+            });
+        });
+    });
+
+    // اعتبارسنجی صریح در JS: ردیف‌های کاملاً خالی حذف می‌شوند و برای ردیف‌های
+    // ناقص پیام روشن داده می‌شود (به‌جای اینکه اعتبارسنجی مرورگر بی‌صدا جلوی
+    // ثبت را بگیرد). ثبت دوباره هم با غیرفعال‌کردن دکمه‌ها مهار می‌شود.
+    var form = document.getElementById('voucherForm');
+    form.setAttribute('novalidate', 'novalidate');
+    form.addEventListener('submit', function (e) {
+        // ۱) حذف ردیف‌های کاملاً خالی
+        Array.prototype.slice.call(container.querySelectorAll('.item-row')).forEach(function (r) {
+            var pid = r.querySelector('.row-product-id').value;
+            var txt = r.querySelector('.row-product-name').value.trim();
+            var qty = r.querySelector('.row-qty').value.trim();
+            if (!pid && !txt && !qty) r.remove();
+        });
+
+        var rows = Array.prototype.slice.call(container.querySelectorAll('.item-row'));
+        if (!rows.length) {
+            e.preventDefault();
+            alert('حداقل یک قلم با محصول و مقدار وارد کنید.');
+            return;
+        }
+
+        // ۲) بررسی هر ردیف
+        var problem = '';
+        rows.forEach(function (r) {
+            var nameEl = r.querySelector('.row-product-name');
+            var pid = r.querySelector('.row-product-id').value;
+            var txt = nameEl.value.trim();
+            var qty = r.querySelector('.row-qty').value.trim();
+            if (!problem) {
+                if (txt && !pid) {
+                    nameEl.classList.add('invalid');
+                    problem = '«' + txt + '» را از فهرست پیشنهادها انتخاب کنید.';
+                } else if (!pid) {
+                    nameEl.classList.add('invalid');
+                    problem = 'محصول همهٔ اقلام را انتخاب کنید.';
+                } else {
+                    var q = parseFloat(qty);
+                    if (!qty || isNaN(q) || (typeAdjustment ? q === 0 : q <= 0)) {
+                        problem = 'مقدار پایهٔ همهٔ اقلام را وارد کنید' +
+                            (typeAdjustment ? ' (غیر از صفر).' : '.');
+                    }
+                }
+            }
+        });
+        if (problem) {
+            e.preventDefault();
+            alert(problem);
+            return;
+        }
+
+        // ۳) مهار ثبت دوباره — با تاخیر تا نام/مقدارِ دکمهٔ زده‌شده ارسال شود
+        setTimeout(function () {
+            form.querySelectorAll('button[type="submit"]').forEach(function (b) {
+                b.disabled = true;
+            });
+        }, 0);
+    });
+
+    // تغییر نوع حواله = بارگذاری صفحهٔ تازه؛ اگر قلمی وارد شده، هشدار بده
+    document.querySelectorAll('.type-pill').forEach(function (pill) {
+        pill.addEventListener('click', function (ev) {
+            var hasData = Array.prototype.some.call(
+                container.querySelectorAll('.item-row'), function (r) {
+                    return r.querySelector('.row-product-id').value ||
+                        r.querySelector('.row-product-name').value.trim() ||
+                        r.querySelector('.row-qty').value.trim();
+                });
+            if (hasData && !confirm('با تغییر نوع حواله، اقلام واردشده پاک می‌شوند. ادامه می‌دهید؟')) {
+                ev.preventDefault();
+            }
+        });
+    });
+
+    // ردیف‌های اولیه: پیش‌نویس/بازنمایش خطا یا یک ردیف خالی
+    if (PREFILL.length) {
+        PREFILL.forEach(function (it) { addRow(it); });
+    } else {
+        addRow();
+    }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,6 @@
+{
+  "name": "Syntel",
+  "description": "اپلیکیشن اندروید مدیریت درخواست، انبار و خرید Syntel متصل به سرور Django با حافظه موقت آفلاین",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
